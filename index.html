@@ -269,7 +269,7 @@ tr:hover td{background:rgba(0,212,255,0.02);}
             <span class="tag accent">+ Añadir</span>
           </div>
           <div class="panel-body">
-            <div class="field"><label>Fecha</label><input type="date" id="f-fecha"></div>
+            <div class="field"><label>Fecha</label><input type="date" id="f-fecha" oninput="fetchHistoricalRates(this.value)"></div>
             <div class="field">
               <label>Ticker</label>
               <div class="preset-grid ticker-fav-presets" style="grid-template-columns:repeat(5,1fr);margin-bottom:6px">
@@ -286,18 +286,16 @@ tr:hover td{background:rgba(0,212,255,0.02);}
               <button class="type-btn long active" id="btn-long" onclick="setType('long')">▲ LONG</button>
               <button class="type-btn short" id="btn-short" onclick="setType('short')">▼ SHORT</button>
             </div>
-            <div class="field-row">
-              <div class="field"><label>Lotes</label><input type="number" id="f-lotes" placeholder="1.00" min="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
               <div class="field"><label>Precio entrada</label><input type="number" id="f-entrada" placeholder="0.00" min="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
-            </div>
-            <div class="field-row">
+              <div class="field"><label>Lotes</label><input type="number" id="f-lotes" placeholder="1.00" min="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
               <div class="field"><label>Precio salida</label><input type="number" id="f-salida" placeholder="0.00" min="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
               <div class="field">
                 <label style="display:flex;align-items:center;justify-content:space-between">
                   <span>Beneficio</span>
                   <span id="f-ben-auto" style="font-size:8px;letter-spacing:.1em;color:var(--accent);display:none">AUTO</span>
                 </label>
-                <input type="number" id="f-beneficio" placeholder="0.00" step="any" inputmode="decimal" oninput="beneficioManualFlag=true">
+                <input type="text" inputmode="numeric" id="f-beneficio" placeholder="0.00" oninput="beneficioManualFlag=true">
               </div>
             </div>
             <div class="field">
@@ -599,6 +597,7 @@ function load(){
 
 // ── INIT ──────────────────────────────────────────────
 document.getElementById('f-fecha').value=todayISO;
+fetchHistoricalRates(todayISO);
 document.getElementById('range-from').value=todayISO;
 document.getElementById('range-to').value=todayISO;
 document.getElementById('today-label').textContent=new Date().toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'long',year:'numeric'});
@@ -678,8 +677,36 @@ function getFiltered(){
 // ── ADD ───────────────────────────────────────────────
 // ── AUTO BENEFICIO ────────────────────────────────────
 let beneficioManualFlag = false;
-let formPipBase = null;   // preset base pip value in USD
-let formCcy = 'USD';      // selected instrument currency
+let formPipBase = null;
+let formCcy = 'USD';
+// Per-form historical rates (fetched by trade date), separate from live fxRaw
+const fxRawForm = {EUR:null, GBP:null, JPY:null, CAD:null, USD:1};
+let fxRawFormDate = null; // ISO date these rates correspond to
+
+async function fetchHistoricalRates(date){
+  if(!date) return;
+  const todayISO2=new Date().toISOString().split('T')[0];
+  // Frankfurter doesn't serve today's data until end of day — fall back to live fxRaw
+  if(date>=todayISO2){
+    ['EUR','GBP','JPY','CAD'].forEach(c=>fxRawForm[c]=fxRaw[c]);
+    fxRawFormDate=date;
+    const liveEl=document.getElementById('f-pip-live');
+    if(liveEl) liveEl.title='Tipo de cambio: hoy (en vivo)';
+    recalcFormPip(); return;
+  }
+  if(fxRawFormDate===date) return; // already loaded
+  try{
+    const res=await fetch(`https://api.frankfurter.app/${date}?from=USD&to=EUR,GBP,JPY,CAD`);
+    if(!res.ok) throw new Error();
+    const data=await res.json();
+    fxRawForm.EUR=data.rates.EUR; fxRawForm.GBP=data.rates.GBP;
+    fxRawForm.JPY=data.rates.JPY; fxRawForm.CAD=data.rates.CAD;
+    fxRawFormDate=date;
+    const liveEl=document.getElementById('f-pip-live');
+    if(liveEl) liveEl.title=`Tipo de cambio: ${date}`;
+    recalcFormPip();
+  } catch(e){ /* silently keep previous rates */ }
+}
 
 function setFormCcy(ccy){
   formCcy=ccy;
@@ -703,12 +730,16 @@ function recalcFormPip(){
   if(base===null){ liveEl.textContent=''; autoCalcBeneficio(); return; }
   let multiplier=1;
   if(formCcy!=='USD'){
-    const rate=fxRaw[formCcy];
+    // Use historical rate if available, otherwise live
+    const rate=fxRawForm[formCcy]??fxRaw[formCcy];
     if(!rate){ liveEl.textContent='Sin tipo de cambio'; autoCalcBeneficio(); return; }
     multiplier=1/rate;
+    const rateSource=fxRawForm[formCcy]?'hist':'live';
+    liveEl.textContent='pip = $'+( base*multiplier).toFixed(4)+' (1/'+rate.toFixed(4)+' '+rateSource+')';
+  } else {
+    liveEl.textContent='';
   }
   const effectivePip=base*multiplier;
-  liveEl.textContent='pip = $'+effectivePip.toFixed(4)+(formCcy!=='USD'?' (1/'+fxRaw[formCcy].toFixed(4)+')':'');
   document.getElementById('f-pip').value=parseFloat(effectivePip.toFixed(6));
   autoCalcBeneficio();
 }
@@ -745,7 +776,7 @@ function addTrade(){
   const lotes=parseFloat(document.getElementById('f-lotes').value);
   const entrada=parseFloat(document.getElementById('f-entrada').value);
   const salida=parseFloat(document.getElementById('f-salida').value);
-  const beneficio=parseFloat(document.getElementById('f-beneficio').value);
+  const beneficio=parseFloat(document.getElementById('f-beneficio').value.replace(',','.'));
   const notas=document.getElementById('f-notas').value.trim();
   const pip=parseFloat(document.getElementById('f-pip').value);
   if(!fecha||!ticker){toast('Fecha y ticker son obligatorios',true);return;}
@@ -756,6 +787,7 @@ function addTrade(){
   trades.sort((a,b)=>b.fecha.localeCompare(a.fecha));
   ['f-ticker','f-lotes','f-entrada','f-salida','f-beneficio','f-pip','f-notas'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-fecha').value=todayISO;
+  fxRawFormDate=null; fetchHistoricalRates(todayISO);
   document.getElementById('f-ben-auto').style.display='none';
   document.getElementById('f-pip-live').textContent='';
   document.querySelectorAll('#form-pip-presets .preset-btn').forEach(b=>b.classList.remove('active'));

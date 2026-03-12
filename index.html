@@ -289,6 +289,11 @@ tr:hover td{background:rgba(0,212,255,0.02);}
                 <button class="preset-btn" onclick="setTicker('US500')">US500</button>
                 <button class="preset-btn" onclick="setTicker('US100')">US100</button>
                 <button class="preset-btn" onclick="setTicker('JP225')">JP225</button>
+                <button class="preset-btn" onclick="setTicker('XAUUSD')">XAUUSD</button>
+                <button class="preset-btn" onclick="setTicker('EURUSD')">EURUSD</button>
+                <button class="preset-btn" onclick="setTicker('USDCAD')">USDCAD</button>
+                <button class="preset-btn" onclick="setTicker('BTCUSD')">BTCUSD</button>
+                <button class="preset-btn" onclick="setTicker('UKOIL')">UKOIL</button>
               </div>
               <input type="text" id="f-ticker" placeholder="EURUSD, AAPL, BTC..." style="text-transform:uppercase" oninput="clearTickerPresets()">
             </div>
@@ -325,11 +330,12 @@ tr:hover td{background:rgba(0,212,255,0.02);}
                 <button class="preset-btn" onclick="setFormCcy('CAD')">CAD</button>
               </div>
               <label style="margin-top:2px">Pip value base ($) · preset o manual</label>
-              <div class="preset-grid" id="form-pip-presets" style="margin-bottom:6px">
-                <button class="preset-btn" onclick="setFormPip(10)">$10 Forex</button>
-                <button class="preset-btn" onclick="setFormPip(1)">$1 Índice</button>
-                <button class="preset-btn" onclick="setFormPip(100)">$100 Oro</button>
-                <button class="preset-btn" onclick="setFormPip(0.1)">$0.1</button>
+              <div class="preset-grid" id="form-pip-presets" style="grid-template-columns:repeat(5,1fr);margin-bottom:6px">
+                <button class="preset-btn" style="padding:5px 2px" onclick="setFormPip(10)">$10 Forex</button>
+                <button class="preset-btn" style="padding:5px 2px" onclick="setFormPip(1)">$1 Índice</button>
+                <button class="preset-btn" style="padding:5px 2px" onclick="setFormPip(100)">$100 Oro</button>
+                <button class="preset-btn" style="padding:5px 2px" onclick="setFormPip(100)">$100 OIL</button>
+                <button class="preset-btn" style="padding:5px 2px" onclick="setFormPip(0.1)">$0.1</button>
               </div>
               <input type="number" id="f-pip" placeholder="Valor pip en $" min="0" step="any" inputmode="decimal" oninput="clearFormPipPreset();recalcFormPip()">
             </div>
@@ -835,21 +841,27 @@ function toggleBenSign(){
   if(!isNaN(v)&&v!==0){ el.value=parseFloat((-v).toFixed(2)); beneficioManualFlag=true; }
 }
 
-const TICKER_CCY={'GER40':'EUR','FTSE100':'GBP','JP225':'JPY','US500':'USD','US100':'USD'};
+const TICKER_CCY={'GER40':'EUR','FTSE100':'GBP','JP225':'JPY','US500':'USD','US100':'USD','XAUUSD':'USD','EURUSD':'USD','USDCAD':'CAD','BTCUSD':'USD','UKOIL':'USD'};
+const TICKER_PIP={'GER40':1,'FTSE100':1,'JP225':1,'US500':1,'US100':1,'XAUUSD':100,'EURUSD':10,'USDCAD':10,'BTCUSD':1,'UKOIL':100};
+const TICKER_PIP_LABEL={'XAUUSD':'$100 Oro','UKOIL':'$100 OIL'};
 
 function clearTickerPresets(){
+  if(settingTickerProg) return;
   document.querySelectorAll('.ticker-fav-presets .preset-btn').forEach(b=>b.classList.remove('active'));
-  setFormCcy('USD'); // reset divisa a USD
-  clearFormPipPreset(); // reset pip preset
+  document.querySelectorAll('#form-ccy-presets .preset-btn').forEach(b=>b.classList.remove('active'));
+  formCcy='USD';
+  clearFormPipPreset();
   formPipBase=null;
   recalcFormPip();
 }
 
 function setTicker(tk){
+  settingTickerProg=true;
   document.getElementById('f-ticker').value=tk;
+  settingTickerProg=false;
   document.querySelectorAll('.ticker-fav-presets .preset-btn').forEach(b=>b.classList.toggle('active', b.textContent===tk));
   if(TICKER_CCY[tk]) setFormCcy(TICKER_CCY[tk]);
-  if(TICKER_CCY[tk]) setFormPip(1); // $1 índice
+  if(TICKER_PIP[tk]) setFormPip(TICKER_PIP[tk], TICKER_PIP_LABEL[tk]||null);
 }
 
 function setType(t){
@@ -919,11 +931,13 @@ function setFormCcy(ccy){
   document.querySelectorAll('#form-ccy-presets .preset-btn').forEach(b=>b.classList.toggle('active', b.textContent===ccy));
   recalcFormPip();
 }
-function setFormPip(v){
+function setFormPip(v, label){
   formPipBase=v;
   document.querySelectorAll('#form-pip-presets .preset-btn').forEach(b=>{
     const m=b.getAttribute('onclick').match(/setFormPip\(([^)]+)\)/);
-    b.classList.toggle('active', m&&parseFloat(m[1])===v);
+    const valMatch=m&&parseFloat(m[1])===v;
+    if(label) b.classList.toggle('active', valMatch&&b.textContent.trim()===label);
+    else b.classList.toggle('active', valMatch);
   });
   document.getElementById('f-pip').value='';
   recalcFormPip();

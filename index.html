@@ -850,9 +850,7 @@ function clearTickerPresets(){
   document.querySelectorAll('.ticker-fav-presets .preset-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('#form-ccy-presets .preset-btn').forEach(b=>b.classList.remove('active'));
   formCcy='USD';
-  clearFormPipPreset();
-  formPipBase=null;
-  recalcFormPip();
+  setFormPip(1,'$1 Índice');
 }
 
 function setTicker(tk){

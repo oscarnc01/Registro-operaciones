@@ -699,16 +699,18 @@ function startRenameById(id){
 }
 
 function switchAccount(id){
-  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.getElementById('tab-journal').classList.add('active');
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  if(id===currentAcctId){ renderAcctTabs(); render(); return; }
-  activeFilter='all'; timePeriod='all';
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));
-  document.querySelectorAll('[data-tp]').forEach(b=>b.classList.toggle('active',b.dataset.tp==='all'));
-  document.getElementById('range-row').style.display='none';
   currentAcctId=id;
   loadTrades(id);
+  // Reset filters
+  activeFilter='all'; timePeriod='all';
+  // Show journal tab
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-journal').classList.add('active');
+  document.getElementById('tab-btn-calc').classList.remove('active');
+  // Reset filter buttons
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));
+  document.querySelectorAll('[data-tp]').forEach(b=>b.classList.toggle('active',b.dataset.tp==='all'));
+  try{ document.getElementById('range-row').style.display='none'; }catch(e){}
   renderAcctTabs();
   render();
 }
@@ -833,9 +835,13 @@ function toggleBenSign(){
   if(!isNaN(v)&&v!==0){ el.value=parseFloat((-v).toFixed(2)); beneficioManualFlag=true; }
 }
 
+const TICKER_CCY={'GER40':'EUR','FTSE100':'GBP','JP225':'JPY','US500':'USD','US100':'USD'};
+
 function setTicker(tk){
   document.getElementById('f-ticker').value=tk;
   document.querySelectorAll('.ticker-fav-presets .preset-btn').forEach(b=>b.classList.toggle('active', b.textContent===tk));
+  if(TICKER_CCY[tk]) setFormCcy(TICKER_CCY[tk]);
+  if(TICKER_CCY[tk]) setFormPip(1); // $1 índice
 }
 
 function setType(t){
@@ -907,7 +913,10 @@ function setFormCcy(ccy){
 }
 function setFormPip(v){
   formPipBase=v;
-  document.querySelectorAll('#form-pip-presets .preset-btn').forEach(b=>b.classList.toggle('active', parseFloat(b.textContent)===v));
+  document.querySelectorAll('#form-pip-presets .preset-btn').forEach(b=>{
+    const m=b.getAttribute('onclick').match(/setFormPip\(([^)]+)\)/);
+    b.classList.toggle('active', m&&parseFloat(m[1])===v);
+  });
   document.getElementById('f-pip').value='';
   recalcFormPip();
 }

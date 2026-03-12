@@ -654,23 +654,23 @@ function migrateLegacy(){
 function renderAcctTabs(){
   const container=document.getElementById('acct-tabs-container');
   container.innerHTML='';
-  accounts.forEach(acct=>{
-    const isActive=acct.id===currentAcctId;
+  for(let i=0;i<accounts.length;i++){
+    const id=accounts[i].id;
+    const name=accounts[i].name;
+    const isActive=(id===currentAcctId);
 
     const btn=document.createElement('button');
     btn.className='acct-tab-btn'+(isActive?' active':'');
-    btn.textContent=acct.name;
+    btn.textContent=name;
     btn.type='button';
-    btn.dataset.id=acct.id;
-    btn.onclick=()=>switchAccount(acct.id);
+    btn.setAttribute('onclick','switchAccount("'+id+'")');
     container.appendChild(btn);
 
     const edit=document.createElement('button');
     edit.className='acct-tab-icon';
     edit.textContent='✎';
     edit.type='button';
-    edit.dataset.id=acct.id;
-    edit.onclick=(e)=>{ e.stopPropagation(); startRenameFlat(acct.id, btn, edit); };
+    edit.setAttribute('onclick','startRenameById("'+id+'")');
     container.appendChild(edit);
 
     if(accounts.length>1){
@@ -678,46 +678,34 @@ function renderAcctTabs(){
       del.className='acct-tab-icon acct-tab-del';
       del.textContent='×';
       del.type='button';
-      del.onclick=(e)=>{ e.stopPropagation(); deleteAccount(acct.id); };
+      del.setAttribute('onclick','deleteAccount("'+id+'")');
       container.appendChild(del);
     }
 
-    // Separator
-    const sep=document.createElement('div');
-    sep.className='acct-tab-sep';
+    const sep=document.createElement('span');
+    sep.innerHTML='&nbsp;&nbsp;';
     container.appendChild(sep);
-  });
+  }
 }
 
-function startRenameFlat(id, btn, editBtn){
+function startRenameById(id){
   const acct=accounts.find(a=>a.id===id);
   if(!acct) return;
-  const input=document.createElement('input');
-  input.value=acct.name;
-  input.style.cssText='font-size:16px;font-family:var(--display);letter-spacing:.08em;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--accent);outline:none;width:100px;padding:8px 2px;touch-action:manipulation;';
-  btn.replaceWith(input);
-  editBtn.style.display='none';
-  input.focus(); input.select();
-  const finish=()=>{
-    acct.name=input.value.trim()||acct.name;
-    saveAccounts();
-    renderAcctTabs();
-  };
-  input.onblur=finish;
-  input.onkeydown=e=>{ if(e.key==='Enter') input.blur(); if(e.key==='Escape'){ acct.name=acct.name; input.blur(); } };
+  const newName=prompt('Nombre de la cuenta:', acct.name);
+  if(newName===null) return;
+  acct.name=newName.trim()||acct.name;
+  saveAccounts();
+  renderAcctTabs();
 }
 
 function switchAccount(id){
-  const alreadyActive=(id===currentAcctId);
-  // Always show the journal tab (in case we're coming from calc tab)
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-journal').classList.add('active');
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  if(alreadyActive){ renderAcctTabs(); render(); return; }
-  // Reset filters
+  if(id===currentAcctId){ renderAcctTabs(); render(); return; }
   activeFilter='all'; timePeriod='all';
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.filter==='all'));
-  document.querySelectorAll('[data-tp]').forEach(b=>b.classList.toggle('active', b.dataset.tp==='all'));
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));
+  document.querySelectorAll('[data-tp]').forEach(b=>b.classList.toggle('active',b.dataset.tp==='all'));
   document.getElementById('range-row').style.display='none';
   currentAcctId=id;
   loadTrades(id);
@@ -727,21 +715,34 @@ function switchAccount(id){
 
 function addAccount(){
   const id='acct_'+Date.now();
-  const n=accounts.length+1;
-  accounts.push({id, name:'Cuenta '+n});
+  accounts.push({id, name:'Cuenta '+(accounts.length+1)});
   saveAccounts();
-  switchAccount(id);
+  currentAcctId=id;
+  trades=[]; nextId=1;
+  saveTrades();
+  activeFilter='all'; timePeriod='all';
+  renderAcctTabs();
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-journal').classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  render();
 }
 
 function deleteAccount(id){
   if(accounts.length<=1){ toast('Necesitas al menos una cuenta'); return; }
-  if(!confirm('¿Eliminar esta cuenta y todos sus trades?')) return;
+  const acct=accounts.find(a=>a.id===id);
+  const resp=prompt('Escribe "borrar" para eliminar "'+( acct?acct.name:id)+'"y todos sus trades:');
+  if(!resp||resp.trim().toLowerCase()!=='borrar') return;
   localStorage.removeItem(acctLSKey(id));
   accounts=accounts.filter(a=>a.id!==id);
   saveAccounts();
-  const next=accounts[0].id;
-  currentAcctId=null;
-  switchAccount(next);
+  currentAcctId=accounts[0].id;
+  loadTrades(currentAcctId);
+  renderAcctTabs();
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-journal').classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  render();
 }
 
 function initAccounts(){

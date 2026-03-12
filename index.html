@@ -270,7 +270,17 @@ tr:hover td{background:rgba(0,212,255,0.02);}
           </div>
           <div class="panel-body">
             <div class="field"><label>Fecha</label><input type="date" id="f-fecha"></div>
-            <div class="field"><label>Ticker</label><input type="text" id="f-ticker" placeholder="EURUSD, AAPL, BTC..." style="text-transform:uppercase"></div>
+            <div class="field">
+              <label>Ticker</label>
+              <div class="preset-grid ticker-fav-presets" style="grid-template-columns:repeat(5,1fr);margin-bottom:6px">
+                <button class="preset-btn" onclick="setTicker('GER40')">GER40</button>
+                <button class="preset-btn" onclick="setTicker('FTSE100')">FTSE100</button>
+                <button class="preset-btn" onclick="setTicker('US500')">US500</button>
+                <button class="preset-btn" onclick="setTicker('US100')">US100</button>
+                <button class="preset-btn" onclick="setTicker('JPY225')">JPY225</button>
+              </div>
+              <input type="text" id="f-ticker" placeholder="EURUSD, AAPL, BTC..." style="text-transform:uppercase">
+            </div>
             <div class="field"><label>Tipo</label></div>
             <div class="type-toggle">
               <button class="type-btn long active" id="btn-long" onclick="setType('long')">▲ LONG</button>
@@ -624,6 +634,11 @@ function periodLabel(){
 }
 
 // ── TIPO ──────────────────────────────────────────────
+function setTicker(tk){
+  document.getElementById('f-ticker').value=tk;
+  document.querySelectorAll('.ticker-fav-presets .preset-btn').forEach(b=>b.classList.toggle('active', b.textContent===tk));
+}
+
 function setType(t){
   tradeType=t;
   document.getElementById('btn-long').classList.toggle('active',t==='long');
@@ -738,6 +753,7 @@ function addTrade(){
   document.querySelectorAll('#form-pip-presets .preset-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('#form-ccy-presets .preset-btn').forEach(b=>b.classList.remove('active'));
   beneficioManualFlag=false; formPipBase=null; formCcy='USD';
+  document.querySelectorAll('.ticker-fav-presets .preset-btn').forEach(b=>b.classList.remove('active'));
   save(); render(); toast('Operación registrada ✓');
 }
 

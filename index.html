@@ -396,9 +396,13 @@ tr:hover td{background:rgba(0,212,255,0.02);}
     <!-- ── Capital + Status bar ───────────────────────── -->
     <div class="fx-capital-bar">
       <span class="fx-capital-label">Capital</span>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex:1">
+        <button class="preset-btn" id="fxcap-btn-0" onclick="setFxCapFav(0)" ondblclick="editFxCapFav(0)" title="Doble clic para editar">$100</button>
+        <button class="preset-btn" id="fxcap-btn-1" onclick="setFxCapFav(1)" ondblclick="editFxCapFav(1)" title="Doble clic para editar">$1.000</button>
+      </div>
       <div class="fx-capital-right">
         <span class="fx-currency-sign">$</span>
-        <input type="number" class="fx-capital-input" id="fx-capital" value="100" min="1" step="1" oninput="fetchFxRates()">
+        <input type="number" class="fx-capital-input" id="fx-capital" value="100" min="1" step="1" oninput="clearFxCapFavActive();fetchFxRates()">
       </div>
       <div class="fx-status-pill">
         <div class="fx-dot loading" id="fx-status-dot"></div>
@@ -477,7 +481,11 @@ tr:hover td{background:rgba(0,212,255,0.02);}
           <div class="panel-head"><span class="panel-title">CALCULADORA DE LOTES</span></div>
           <div class="panel-body">
             <div class="field"><label>Capital de la cuenta ($)</label>
-              <input type="number" id="c-capital" placeholder="10000" min="0" step="any" inputmode="decimal" oninput="calcLots()">
+              <div class="preset-grid" style="grid-template-columns:1fr 1fr;margin-bottom:6px">
+                <button class="preset-btn" id="ccap-btn-0" onclick="setCalcCapFav(0)" ondblclick="editCalcCapFav(0)" title="Doble clic para editar">$10.000</button>
+                <button class="preset-btn" id="ccap-btn-1" onclick="setCalcCapFav(1)" ondblclick="editCalcCapFav(1)" title="Doble clic para editar">$100.000</button>
+              </div>
+              <input type="number" id="c-capital" value="100000" min="0" step="any" inputmode="decimal" oninput="clearCalcCapFavActive();calcLots()">
             </div>
             <div class="field"><label>Riesgo por operación</label>
               <div class="preset-grid" id="risk-presets">
@@ -961,6 +969,46 @@ function exportCSV(){
 // ── LOT CALCULATOR ────────────────────────────────────
 let calcCcy = 'USD';
 let calcPipBase = null;
+
+// ── FAVOURITE CAPITALS ────────────────────────────────
+const fxCapFavs = [100, 1000];
+const calcCapFavs = [10000, 100000];
+
+function fmtCapBtn(v){ return '$'+v.toLocaleString('es-ES'); }
+
+function setFxCapFav(i){
+  document.getElementById('fx-capital').value=fxCapFavs[i];
+  [0,1].forEach(j=>document.getElementById('fxcap-btn-'+j).classList.toggle('active',j===i));
+  fetchFxRates();
+}
+function clearFxCapFavActive(){ [0,1].forEach(j=>document.getElementById('fxcap-btn-'+j).classList.remove('active')); }
+function editFxCapFav(i){
+  const cur=fxCapFavs[i];
+  const val=prompt('Nuevo valor para el favorito '+(i+1)+' ($):', cur);
+  if(val===null) return;
+  const n=parseFloat(val.replace(/[.,]/g,'').replace(',','.'));
+  if(isNaN(n)||n<=0){ toast('Valor no válido',true); return; }
+  fxCapFavs[i]=n;
+  document.getElementById('fxcap-btn-'+i).textContent=fmtCapBtn(n);
+  setFxCapFav(i);
+}
+
+function setCalcCapFav(i){
+  document.getElementById('c-capital').value=calcCapFavs[i];
+  [0,1].forEach(j=>document.getElementById('ccap-btn-'+j).classList.toggle('active',j===i));
+  calcLots();
+}
+function clearCalcCapFavActive(){ [0,1].forEach(j=>document.getElementById('ccap-btn-'+j).classList.remove('active')); }
+function editCalcCapFav(i){
+  const cur=calcCapFavs[i];
+  const val=prompt('Nuevo valor para el favorito '+(i+1)+' ($):', cur);
+  if(val===null) return;
+  const n=parseFloat(String(val).replace(/\./g,'').replace(',','.'));
+  if(isNaN(n)||n<=0){ toast('Valor no válido',true); return; }
+  calcCapFavs[i]=n;
+  document.getElementById('ccap-btn-'+i).textContent=fmtCapBtn(n);
+  setCalcCapFav(i);
+}
 
 function setCalcCcy(ccy){
   calcCcy=ccy;

@@ -663,14 +663,14 @@ function renderAcctTabs(){
     btn.className='acct-tab-btn'+(isActive?' active':'');
     btn.textContent=name;
     btn.type='button';
-    btn.setAttribute('onclick','switchAccount("'+id+'")');
+    btn.setAttribute('onclick',"switchAccount('"+id+"')");
     container.appendChild(btn);
 
     const edit=document.createElement('button');
     edit.className='acct-tab-icon';
     edit.textContent='✎';
     edit.type='button';
-    edit.setAttribute('onclick','startRenameById("'+id+'")');
+    edit.setAttribute('onclick',"startRenameById('"+id+"')");
     container.appendChild(edit);
 
     if(accounts.length>1){
@@ -678,7 +678,7 @@ function renderAcctTabs(){
       del.className='acct-tab-icon acct-tab-del';
       del.textContent='×';
       del.type='button';
-      del.setAttribute('onclick','deleteAccount("'+id+'")');
+      del.setAttribute('onclick',"deleteAccount('"+id+"')");
       container.appendChild(del);
     }
 

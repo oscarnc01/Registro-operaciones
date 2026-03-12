@@ -337,7 +337,7 @@ tr:hover td{background:rgba(0,212,255,0.02);}
                 <button class="preset-btn" style="padding:5px 2px" onclick="setFormPip(100)">$100 OIL</button>
                 <button class="preset-btn" style="padding:5px 2px" onclick="setFormPip(0.1)">$0.1</button>
               </div>
-              <input type="number" id="f-pip" placeholder="Valor pip en $" min="0" step="any" inputmode="decimal" oninput="clearFormPipPreset();recalcFormPip()">
+              <input type="number" id="f-pip" value="1" min="0" step="any" inputmode="decimal" oninput="clearFormPipPreset();recalcFormPip()">
             </div>
             <div class="field"><label>Notas (opcional)</label><input type="text" id="f-notas" placeholder="Estrategia, razón..."></div>
             <button class="btn-add" onclick="addTrade()">+ REGISTRAR</button>
@@ -953,12 +953,15 @@ function recalcFormPip(){
   if(base===null){ liveEl.textContent=''; autoCalcBeneficio(); return; }
   let multiplier=1;
   if(formCcy!=='USD'){
-    // Use historical rate if available, otherwise live
     const rate=fxRawForm[formCcy]??fxRaw[formCcy];
-    if(!rate){ liveEl.textContent='Sin tipo de cambio'; autoCalcBeneficio(); return; }
+    if(!rate){
+      liveEl.textContent='Sin tipo de cambio';
+      document.getElementById('f-pip').value=base; // muestra valor base aunque no haya tipo
+      autoCalcBeneficio(); return;
+    }
     multiplier=1/rate;
     const rateSource=fxRawForm[formCcy]?'hist':'live';
-    liveEl.textContent='pip = $'+( base*multiplier).toFixed(4)+' (1/'+rate.toFixed(4)+' '+rateSource+')';
+    liveEl.textContent='pip = $'+(base*multiplier).toFixed(4)+' (1/'+rate.toFixed(4)+' '+rateSource+')';
   } else {
     liveEl.textContent='';
   }
@@ -1008,15 +1011,15 @@ function addTrade(){
     lotes:isNaN(lotes)?null:lotes,entrada:isNaN(entrada)?null:entrada,
     salida:isNaN(salida)?null:salida,pip:isNaN(pip)?null:pip,beneficio,notas});
   trades.sort((a,b)=>b.fecha.localeCompare(a.fecha));
-  ['f-ticker','f-lotes','f-entrada','f-salida','f-beneficio','f-pip','f-notas'].forEach(id=>document.getElementById(id).value='');
+  ['f-ticker','f-lotes','f-entrada','f-salida','f-beneficio','f-notas'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-fecha').value=todayISO;
   fxRawFormDate=null; fetchHistoricalRates(todayISO);
   document.getElementById('f-ben-auto').style.display='none';
   document.getElementById('f-pip-live').textContent='';
-  document.querySelectorAll('#form-pip-presets .preset-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('#form-ccy-presets .preset-btn').forEach(b=>b.classList.remove('active'));
-  beneficioManualFlag=false; formPipBase=null; formCcy='USD';
   document.querySelectorAll('.ticker-fav-presets .preset-btn').forEach(b=>b.classList.remove('active'));
+  beneficioManualFlag=false; formCcy='USD';
+  setFormPip(1,'$1 Índice');
   save(); render(); toast('Operación registrada ✓');
 }
 

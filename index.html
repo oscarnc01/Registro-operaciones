@@ -1227,41 +1227,49 @@ function fxCalcLots(pair){
 let importPending = [];
 
 const FIELD_ALIASES = {
-  fecha:    ['fecha','date','día','dia','f','trade date','open date','close date'],
-  ticker:   ['ticker','symbol','instrumento','instrument','pair','activo','asset'],
+  fecha:    ['fecha','date','trade date','open date','close date','open_date','fecha operacion','cierre'],
+  ticker:   ['ticker','symbol','simbolo','instrumento','instrument','pair','activo','asset'],
   tipo:     ['tipo','type','direction','side','buy/sell','long/short'],
-  lotes:    ['lotes','lots','size','volume','cantidad','qty','quantity'],
-  entrada:  ['entrada','entry','open','open price','precio entrada','price in','open_price'],
-  salida:   ['salida','exit','close','close price','precio salida','price out','close_price'],
-  beneficio:['beneficio','profit','p&l','pnl','resultado','gain','net profit','profit/loss'],
+  lotes:    ['lotes','lots','size','volume','volumen','cantidad','qty','quantity'],
+  entrada:  ['entrada','entry','open price','precio entrada','price in','open_price'],
+  salida:   ['salida','exit','close price','precio salida','price out','close_price'],
+  beneficio:['beneficio','profit','p&l','pnl','resultado','net profit','profit/loss','ganancias','gain/loss'],
   notas:    ['notas','notes','comment','comments','comentario','descripcion','description'],
 };
 
 function detectField(header){
-  const h=header.toLowerCase().trim();
+  const h=header.toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  // Exact match first
   for(const [field,aliases] of Object.entries(FIELD_ALIASES)){
-    if(aliases.some(a=>h.includes(a)||a.includes(h))) return field;
+    if(aliases.some(a=>a.normalize('NFD').replace(/[\u0300-\u036f]/g,'')=== h)) return field;
+  }
+  // Partial match (header contains alias)
+  for(const [field,aliases] of Object.entries(FIELD_ALIASES)){
+    if(aliases.some(a=>h===a.normalize('NFD').replace(/[\u0300-\u036f]/g,'')||
+      h.startsWith(a.normalize('NFD').replace(/[\u0300-\u036f]/g,'')))) return field;
   }
   return null;
 }
 
 function parseDate(raw){
   if(!raw) return null;
-  // Try ISO
-  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // Strip time part: "2026-03-11 11:42:49" → "2026-03-11"
+  const s=String(raw).trim().split(/[\sT]/)[0];
+  // ISO YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   // DD/MM/YYYY or DD-MM-YYYY
-  const m1=raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  const m1=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if(m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
-  // MM/DD/YYYY
-  const m2=raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  // DD/MM/YY
+  const m2=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
   if(m2) return `20${m2[3]}-${m2[1].padStart(2,'0')}-${m2[2].padStart(2,'0')}`;
-  // Excel serial date
-  if(!isNaN(raw)){
-    const d=XLSX.SSF.parse_date_code(Number(raw));
+  // Excel serial
+  if(!isNaN(s)&&s!==''){
+    const d=XLSX.SSF.parse_date_code(Number(s));
     if(d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
   }
-  // Try native Date
-  const nd=new Date(raw);
+  const nd=new Date(s);
   if(!isNaN(nd)) return nd.toISOString().split('T')[0];
   return null;
 }
@@ -1275,7 +1283,11 @@ function parseTipo(raw){
 
 function parseNum(raw){
   if(raw===null||raw===undefined||raw==='') return null;
-  const s=String(raw).replace(/[€$£\s]/g,'').replace(',','.');
+  let s=String(raw).replace(/[€$£\s]/g,'').trim();
+  // European thousands+decimal: "1.234,56" → "1234.56"
+  if(s.includes('.')&&s.includes(',')) s=s.replace(/\./g,'').replace(',','.');
+  // Comma-only decimal: "-29,39" → "-29.39"
+  else if(s.includes(',')&&!s.includes('.')) s=s.replace(',','.');
   const n=parseFloat(s);
   return isNaN(n)?null:n;
 }

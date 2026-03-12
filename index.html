@@ -52,7 +52,7 @@ header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap
 .tab-add{font-size:18px;line-height:1;padding:6px 12px 10px;cursor:pointer;color:var(--text3);background:none;border:none;transition:all .2s;-webkit-tap-highlight-color:transparent;margin-bottom:-1px;}
 .tab-add:hover{color:var(--accent);}
 /* Rename input overlay */
-.acct-tab-input{font-family:var(--display);font-size:13px;letter-spacing:.08em;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--accent);outline:none;width:90px;padding:0 2px;}
+.acct-tab-input{font-family:var(--display);font-size:16px;letter-spacing:.08em;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--accent);outline:none;width:110px;padding:0 2px;}
 
 /* TIME FILTER */
 .time-filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
@@ -659,26 +659,27 @@ function renderAcctTabs(){
   accounts.forEach(acct=>{
     const wrap=document.createElement('div');
     wrap.className='acct-tab'+(acct.id===currentAcctId?' active':'');
-    wrap.dataset.id=acct.id;
+    wrap.dataset.acctId=acct.id;
 
     const btn=document.createElement('button');
     btn.className='acct-tab-btn';
     btn.textContent=acct.name;
     btn.title='Doble clic para renombrar';
-    btn.onclick=()=>switchAccount(acct.id);
-    btn.ondblclick=()=>startRename(acct.id, wrap);
+    btn.dataset.acctId=acct.id;
+    btn.setAttribute('ontouchend', '');  // makes iOS treat as clickable
 
     const del=document.createElement('button');
     del.className='acct-tab-del';
     del.textContent='×';
     del.title='Eliminar cuenta';
-    del.onclick=(e)=>{ e.stopPropagation(); deleteAccount(acct.id); };
+    del.dataset.delId=acct.id;
 
     wrap.appendChild(btn);
     if(accounts.length>1) wrap.appendChild(del);
     container.appendChild(wrap);
   });
 }
+
 
 function startRename(id, wrapEl){
   const acct=accounts.find(a=>a.id===id);
@@ -687,7 +688,7 @@ function startRename(id, wrapEl){
   const input=document.createElement('input');
   input.className='acct-tab-input';
   input.value=acct.name;
-  input.style.cssText='font-family:var(--display);font-size:13px;letter-spacing:.08em;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--accent);outline:none;width:90px;padding:6px 2px 8px;';
+  input.style.cssText='font-family:var(--display);font-size:16px;letter-spacing:.08em;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--accent);outline:none;width:110px;padding:6px 2px 8px;';
   btn.replaceWith(input);
   input.focus(); input.select();
   const finish=()=>{
@@ -1610,6 +1611,20 @@ function importFile(input){
 }
 
 function showTab(id,btn){ showMainTab(id,btn); }
+
+// Delegated listeners for account tabs — added after DOM init, reliable on iOS
+document.getElementById('acct-tabs-container').addEventListener('click', function(e){
+  const delBtn=e.target.closest('[data-del-id]');
+  if(delBtn){ e.stopPropagation(); deleteAccount(delBtn.dataset.delId); return; }
+  const tabBtn=e.target.closest('[data-acct-id]');
+  if(tabBtn) switchAccount(tabBtn.dataset.acctId);
+});
+document.getElementById('acct-tabs-container').addEventListener('dblclick', function(e){
+  const tabBtn=e.target.closest('.acct-tab-btn');
+  if(!tabBtn) return;
+  const wrap=tabBtn.closest('.acct-tab');
+  if(wrap) startRename(wrap.dataset.acctId, wrap);
+});
 </script>
 </body>
 </html>

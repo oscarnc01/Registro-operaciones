@@ -482,6 +482,13 @@ tr:hover td{background:rgba(0,212,255,0.02);}
               <input type="number" id="c-sl" placeholder="20" min="0" step="any" inputmode="decimal" oninput="calcLots()">
             </div>
             <div class="field"><label>Valor del pip por lote estándar ($)</label>
+              <div class="preset-grid" id="ccy-presets" style="grid-template-columns:repeat(5,1fr);margin-bottom:6px">
+                <button class="preset-btn active" onclick="setCalcCcy('USD')">USD</button>
+                <button class="preset-btn" onclick="setCalcCcy('EUR')">EUR</button>
+                <button class="preset-btn" onclick="setCalcCcy('GBP')">GBP</button>
+                <button class="preset-btn" onclick="setCalcCcy('JPY')">JPY</button>
+                <button class="preset-btn" onclick="setCalcCcy('CAD')">CAD</button>
+              </div>
               <div class="preset-grid" id="pip-presets">
                 <button class="preset-btn" onclick="setPip(10)">$10 Forex</button>
                 <button class="preset-btn" onclick="setPip(1)">$1 Índice</button>
@@ -489,6 +496,7 @@ tr:hover td{background:rgba(0,212,255,0.02);}
                 <button class="preset-btn" onclick="setPip(100)">$100 Oro</button>
               </div>
               <input type="number" id="c-pip" placeholder="10" min="0" step="any" inputmode="decimal" oninput="clearPipPreset();calcLots()" style="margin-top:6px">
+              <div id="c-pip-live" style="font-size:10px;color:var(--accent);font-family:var(--mono);min-height:14px;margin-top:4px"></div>
             </div>
           </div>
         </div>
@@ -935,6 +943,41 @@ function exportCSV(){
 }
 
 // ── LOT CALCULATOR ────────────────────────────────────
+let calcCcy = 'USD';
+let calcPipBase = null;
+
+function setCalcCcy(ccy){
+  calcCcy=ccy;
+  document.querySelectorAll('#ccy-presets .preset-btn').forEach(b=>b.classList.toggle('active', b.textContent===ccy));
+  recalcCalcPip();
+}
+function setPip(v){
+  calcPipBase=v;
+  document.querySelectorAll('#pip-presets .preset-btn').forEach(b=>b.classList.toggle('active',parseFloat(b.textContent)===v));
+  document.getElementById('c-pip').value='';
+  recalcCalcPip();
+}
+function clearPipPreset(){
+  calcPipBase=null;
+  document.querySelectorAll('#pip-presets .preset-btn').forEach(b=>b.classList.remove('active'));
+}
+function recalcCalcPip(){
+  const liveEl=document.getElementById('c-pip-live');
+  const manualVal=parseFloat(document.getElementById('c-pip').value);
+  const base=calcPipBase!==null ? calcPipBase : (!isNaN(manualVal)&&manualVal>0 ? manualVal : null);
+  if(!base){ liveEl.textContent=''; calcLots(); return; }
+  let multiplier=1;
+  if(calcCcy!=='USD'){
+    const rate=fxRaw[calcCcy];
+    if(!rate){ liveEl.textContent='Sin tipo de cambio'; calcLots(); return; }
+    multiplier=1/rate;
+  }
+  const effectivePip=base*multiplier;
+  liveEl.textContent='pip efectivo = $'+effectivePip.toFixed(4)+(calcCcy!=='USD'?' · 1/'+fxRaw[calcCcy].toFixed(4):'');
+  document.getElementById('c-pip').value=parseFloat(effectivePip.toFixed(6));
+  calcLots();
+}
+
 function setRisk(v){
   document.getElementById('c-riesgo').value=v;
   document.querySelectorAll('#risk-presets .preset-btn').forEach(b=>b.classList.toggle('active',parseFloat(b.textContent)===v));
@@ -969,7 +1012,7 @@ function calcLots(){
   bd.style.display='';
   document.getElementById('cb-riesgo-usd').textContent='$'+fmtN(riesgoUSD,2);
   document.getElementById('cb-sl').textContent=fmtN(sl,1)+' pips';
-  document.getElementById('cb-pip').textContent='$'+fmtN(pip,2)+'/pip';
+  document.getElementById('cb-pip').textContent='$'+fmtN(pip,4)+'/pip'+(calcCcy!=='USD'?' ('+calcCcy+')':'');
   document.getElementById('cb-cost').textContent='$'+fmtN(costPerLot,2);
   document.getElementById('cb-exact').textContent=fmtN(lots,4)+' lotes';
 }
@@ -1029,6 +1072,7 @@ async function fetchFxRates(){
     fxSetStatus('ok');
     // Recalc pip if currency selected
     recalcFormPip();
+    recalcCalcPip();
   } catch(e){
     fxSetStatus('error');
     document.getElementById('fx-last-update').textContent='Error al obtener datos';

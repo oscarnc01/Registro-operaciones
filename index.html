@@ -44,12 +44,12 @@ header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap
 /* Account tabs */
 .acct-tab{display:flex;align-items:center;gap:0;border-bottom:2px solid transparent;margin-bottom:-1px;position:relative;}
 .acct-tab.active{border-bottom-color:var(--accent);}
-.acct-tab-btn{font-family:var(--display);font-size:13px;letter-spacing:.08em;padding:10px 6px 10px 14px;cursor:pointer;color:var(--text3);background:none;border:none;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;}
+.acct-tab-btn{font-family:var(--display);font-size:13px;letter-spacing:.08em;padding:10px 6px 10px 14px;cursor:pointer;color:var(--text3);background:none;border:none;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;touch-action:manipulation;}
 .acct-tab.active .acct-tab-btn{color:var(--accent);}
-.acct-tab-del{font-size:11px;padding:4px 8px 4px 2px;cursor:pointer;color:var(--text3);background:none;border:none;opacity:0;transition:opacity .2s;-webkit-tap-highlight-color:transparent;line-height:1;}
+.acct-tab-del{font-size:11px;padding:4px 8px 4px 2px;cursor:pointer;color:var(--text3);background:none;border:none;opacity:0;transition:opacity .2s;-webkit-tap-highlight-color:transparent;line-height:1;touch-action:manipulation;}
 .acct-tab:hover .acct-tab-del{opacity:1;}
 .acct-tab-del:hover{color:var(--red);}
-.tab-add{font-size:18px;line-height:1;padding:6px 12px 10px;cursor:pointer;color:var(--text3);background:none;border:none;transition:all .2s;-webkit-tap-highlight-color:transparent;margin-bottom:-1px;}
+.tab-add{font-size:18px;line-height:1;padding:6px 12px 10px;cursor:pointer;color:var(--text3);background:none;border:none;transition:all .2s;-webkit-tap-highlight-color:transparent;margin-bottom:-1px;touch-action:manipulation;}
 .tab-add:hover{color:var(--accent);}
 /* Rename input overlay */
 .acct-tab-input{font-family:var(--display);font-size:16px;letter-spacing:.08em;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--accent);outline:none;width:110px;padding:0 2px;}
@@ -664,26 +664,14 @@ function renderAcctTabs(){
     btn.className='acct-tab-btn';
     btn.textContent=acct.name;
     btn.type='button';
-
-    // Long press to rename (600ms), single tap to switch
-    let pressTimer=null;
-    btn.addEventListener('touchstart', function(e){
-      pressTimer=setTimeout(()=>{ pressTimer=null; startRename(acct.id, wrap); }, 600);
-    }, {passive:true});
-    btn.addEventListener('touchend', function(e){
-      if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; switchAccount(acct.id); }
-    }, {passive:true});
-    btn.addEventListener('touchmove', function(){ clearTimeout(pressTimer); pressTimer=null; }, {passive:true});
-    // Desktop: click to switch, dblclick to rename
-    btn.addEventListener('click', function(){ switchAccount(acct.id); });
-    btn.addEventListener('dblclick', function(e){ e.preventDefault(); startRename(acct.id, wrap); });
+    btn.onclick=()=>switchAccount(acct.id);
+    btn.ondblclick=(e)=>{ e.preventDefault(); startRename(acct.id, wrap); };
 
     const del=document.createElement('button');
     del.className='acct-tab-del';
     del.textContent='×';
     del.type='button';
-    del.addEventListener('touchend', function(e){ e.stopPropagation(); deleteAccount(acct.id); }, {passive:true});
-    del.addEventListener('click', function(e){ e.stopPropagation(); deleteAccount(acct.id); });
+    del.onclick=(e)=>{ e.stopPropagation(); deleteAccount(acct.id); };
 
     wrap.appendChild(btn);
     if(accounts.length>1) wrap.appendChild(del);

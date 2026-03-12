@@ -277,7 +277,7 @@ tr:hover td{background:rgba(0,212,255,0.02);}
                 <button class="preset-btn" onclick="setTicker('FTSE100')">FTSE100</button>
                 <button class="preset-btn" onclick="setTicker('US500')">US500</button>
                 <button class="preset-btn" onclick="setTicker('US100')">US100</button>
-                <button class="preset-btn" onclick="setTicker('JPY225')">JPY225</button>
+                <button class="preset-btn" onclick="setTicker('JP225')">JP225</button>
               </div>
               <input type="text" id="f-ticker" placeholder="EURUSD, AAPL, BTC..." style="text-transform:uppercase">
             </div>
@@ -1227,7 +1227,7 @@ function fxCalcLots(pair){
 let importPending = [];
 
 const FIELD_ALIASES = {
-  fecha:    ['fecha','date','trade date','open date','close date','open_date','fecha operacion','cierre'],
+  fecha:    ['abrir','fecha','date','trade date','open date','open_date','fecha apertura'],
   ticker:   ['ticker','symbol','simbolo','instrumento','instrument','pair','activo','asset'],
   tipo:     ['tipo','type','direction','side','buy/sell','long/short'],
   lotes:    ['lotes','lots','size','volume','volumen','cantidad','qty','quantity'],
@@ -1237,19 +1237,48 @@ const FIELD_ALIASES = {
   notas:    ['notas','notes','comment','comments','comentario','descripcion','description'],
 };
 
+// Normalize broker symbol names → canonical ticker
+function normalizeTicker(raw){
+  const map={
+    'GER40.CASH':'GER40','GER40CASH':'GER40',
+    'UK100.CASH':'FTSE100','UK100CASH':'FTSE100',
+    'US500.CASH':'US500','US500CASH':'US500',
+    'US100.CASH':'US100','US100CASH':'US100',
+    'JP225.CASH':'JP225','JP225CASH':'JP225',
+    'JPY225.CASH':'JP225','JPY225CASH':'JP225',
+  };
+  const key=raw.toUpperCase().replace(/\s/g,'');
+  return map[key]||raw.toUpperCase();
+}
+
+function norm(s){return s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
+
 function detectField(header){
-  const h=header.toLowerCase().trim()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  // Exact match first
+  const h=norm(header);
   for(const [field,aliases] of Object.entries(FIELD_ALIASES)){
-    if(aliases.some(a=>a.normalize('NFD').replace(/[\u0300-\u036f]/g,'')=== h)) return field;
+    if(aliases.some(a=>norm(a)===h)) return field;
   }
-  // Partial match (header contains alias)
   for(const [field,aliases] of Object.entries(FIELD_ALIASES)){
-    if(aliases.some(a=>h===a.normalize('NFD').replace(/[\u0300-\u036f]/g,'')||
-      h.startsWith(a.normalize('NFD').replace(/[\u0300-\u036f]/g,'')))) return field;
+    if(aliases.some(a=>h.startsWith(norm(a))||norm(a).startsWith(h))) return field;
   }
   return null;
+}
+
+// Build colMap handling duplicate column names (e.g. two "Precio" columns)
+// Returns colMap with special handling: entrada = first Precio idx, salida = second Precio idx
+function buildColMap(headers){
+  const colMap={};
+  const precioIdxs=[];
+  headers.forEach((h,i)=>{
+    const hn=norm(h);
+    if(hn==='precio'||hn==='price') { precioIdxs.push(i); return; }
+    const f=detectField(h);
+    if(f&&colMap[f]===undefined) colMap[f]=i;
+  });
+  // First Precio = entrada, second Precio = salida
+  if(precioIdxs.length>=1 && colMap['entrada']===undefined) colMap['entrada']=precioIdxs[0];
+  if(precioIdxs.length>=2 && colMap['salida']===undefined)  colMap['salida']=precioIdxs[1];
+  return colMap;
 }
 
 function parseDate(raw){
@@ -1297,7 +1326,7 @@ function rowsToTrades(rows, colMap){
   rows.forEach((row,i)=>{
     const get=f=>colMap[f]!==undefined?row[colMap[f]]:undefined;
     const fecha=parseDate(String(get('fecha')??''));
-    const ticker=String(get('ticker')??'').trim().toUpperCase();
+    const ticker=normalizeTicker(String(get('ticker')??'').trim());
     const beneficio=parseNum(get('beneficio'));
     if(!fecha){ errors.push(`Fila ${i+2}: fecha inválida ("${get('fecha')}")`); return; }
     if(!ticker){ errors.push(`Fila ${i+2}: ticker vacío`); return; }
@@ -1321,8 +1350,7 @@ function parseCSVRows(text){
   const sep=text.includes(';')?';':',';
   const lines=text.trim().split(/\r?\n/);
   const headers=lines[0].split(sep).map(h=>h.replace(/^"|"$/g,'').trim());
-  const colMap={};
-  headers.forEach((h,i)=>{ const f=detectField(h); if(f) colMap[f]=i; });
+  const colMap=buildColMap(headers);
   const rows=lines.slice(1).filter(l=>l.trim()).map(l=>
     l.split(sep).map(c=>c.replace(/^"|"$/g,'').trim())
   );
@@ -1335,8 +1363,7 @@ function parseXLSXRows(ab){
   const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
   if(data.length<2) return {headers:[],colMap:{},rows:[]};
   const headers=data[0].map(h=>String(h).trim());
-  const colMap={};
-  headers.forEach((h,i)=>{ const f=detectField(h); if(f) colMap[f]=i; });
+  const colMap=buildColMap(headers);
   const rows=data.slice(1).filter(r=>r.some(c=>c!==''));
   return {headers, colMap, rows};
 }

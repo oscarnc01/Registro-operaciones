@@ -1175,6 +1175,13 @@ async function fetchFxRates(){
     const {EUR:e,GBP:g,JPY:j,CAD:c}=data.rates;
     // Store raw rates (units per 1 USD)
     fxRaw.EUR=e; fxRaw.GBP=g; fxRaw.JPY=j; fxRaw.CAD=c; fxRaw.USD=1;
+    // If form date is today (or not set), sync live rates into fxRawForm immediately
+    const todayISO2=new Date().toISOString().split('T')[0];
+    const formDate=document.getElementById('f-fecha').value;
+    if(!formDate||formDate>=todayISO2){
+      fxRawForm.EUR=e; fxRawForm.GBP=g; fxRawForm.JPY=j; fxRawForm.CAD=c;
+      fxRawFormDate=formDate||todayISO2;
+    }
     // Lot calculator rates (capital × rate)
     const capital=getFxCapital();
     ['EURUSD','GBPUSD','JPYUSD'].forEach(p=>fxPrevRates[p]=fxRates[p]);

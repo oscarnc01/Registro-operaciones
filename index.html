@@ -985,12 +985,6 @@ function setRisk(v){
 }
 function clearRiskPreset(){document.querySelectorAll('#risk-presets .preset-btn').forEach(b=>b.classList.remove('active'));}
 
-function setPip(v){
-  document.getElementById('c-pip').value=v;
-  document.querySelectorAll('#pip-presets .preset-btn').forEach(b=>b.classList.toggle('active',parseFloat(b.textContent)===v));
-  calcLots();
-}
-function clearPipPreset(){document.querySelectorAll('#pip-presets .preset-btn').forEach(b=>b.classList.remove('active'));}
 
 function calcLots(){
   const capital=parseFloat(document.getElementById('c-capital').value);

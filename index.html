@@ -1112,7 +1112,8 @@ function fxCalcLots(pair){
   if(!cambio||isNaN(range)||range<=0){
     el.textContent='—'; el.className='fx-lots-display fx-lots-empty'; return;
   }
-  el.textContent=(cambio/range).toFixed(2);
+  const lots=Math.ceil((cambio/range)*1000)/1000;
+  el.textContent=fmtN(lots,3);
   el.className='fx-lots-display fx-lots-flash';
   setTimeout(()=>el.classList.remove('fx-lots-flash'),300);
 }

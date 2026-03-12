@@ -664,15 +664,32 @@ function renderAcctTabs(){
     const btn=document.createElement('button');
     btn.className='acct-tab-btn';
     btn.textContent=acct.name;
-    btn.title='Doble clic para renombrar';
-    btn.dataset.acctId=acct.id;
-    btn.setAttribute('ontouchend', '');  // makes iOS treat as clickable
+    btn.type='button';
+
+    let tapTimer=null;
+    function handleTap(e){
+      e.preventDefault();
+      if(tapTimer){
+        clearTimeout(tapTimer);
+        tapTimer=null;
+        startRename(acct.id, wrap);
+      } else {
+        tapTimer=setTimeout(()=>{ tapTimer=null; switchAccount(acct.id); },220);
+      }
+    }
+    btn.addEventListener('touchend', handleTap, {passive:false});
+    btn.addEventListener('click', function(e){
+      // On desktop (no touch) use click normally
+      if(!('ontouchstart' in window)) switchAccount(acct.id);
+    });
 
     const del=document.createElement('button');
     del.className='acct-tab-del';
     del.textContent='×';
     del.title='Eliminar cuenta';
-    del.dataset.delId=acct.id;
+    del.type='button';
+    del.addEventListener('touchend', function(e){ e.preventDefault(); e.stopPropagation(); deleteAccount(acct.id); }, {passive:false});
+    del.addEventListener('click', function(e){ e.stopPropagation(); deleteAccount(acct.id); });
 
     wrap.appendChild(btn);
     if(accounts.length>1) wrap.appendChild(del);
@@ -1611,20 +1628,6 @@ function importFile(input){
 }
 
 function showTab(id,btn){ showMainTab(id,btn); }
-
-// Delegated listeners for account tabs — added after DOM init, reliable on iOS
-document.getElementById('acct-tabs-container').addEventListener('click', function(e){
-  const delBtn=e.target.closest('[data-del-id]');
-  if(delBtn){ e.stopPropagation(); deleteAccount(delBtn.dataset.delId); return; }
-  const tabBtn=e.target.closest('[data-acct-id]');
-  if(tabBtn) switchAccount(tabBtn.dataset.acctId);
-});
-document.getElementById('acct-tabs-container').addEventListener('dblclick', function(e){
-  const tabBtn=e.target.closest('.acct-tab-btn');
-  if(!tabBtn) return;
-  const wrap=tabBtn.closest('.acct-tab');
-  if(wrap) startRename(wrap.dataset.acctId, wrap);
-});
 </script>
 </body>
 </html>

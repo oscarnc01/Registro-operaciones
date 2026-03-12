@@ -42,14 +42,14 @@ header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap
 .tab-content{display:none;}
 .tab-content.active{display:block;}
 /* Account tabs - flat buttons */
-.acct-tab-btn{font-family:var(--display);font-size:13px;letter-spacing:.08em;padding:10px 4px 10px 14px;cursor:pointer;color:var(--text3);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;touch-action:manipulation;}
+.acct-tab-btn{font-family:var(--display);font-size:13px;letter-spacing:.08em;padding:10px 2px 10px 10px;cursor:pointer;color:var(--text3);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;touch-action:manipulation;width:auto;}
 .acct-tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
-.acct-tab-icon{font-size:11px;padding:4px 5px;cursor:pointer;color:var(--text3);background:none;border:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;opacity:0.5;margin-bottom:2px;}
+.acct-tab-icon{font-size:11px;padding:4px 3px;cursor:pointer;color:var(--text3);background:none;border:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;opacity:0.5;margin-bottom:2px;width:auto;}
 .acct-tab-icon:hover,.acct-tab-icon:active{opacity:1;}
 .acct-tab-del{color:var(--text3);}
 .acct-tab-del:hover,.acct-tab-del:active{color:var(--red);}
-.acct-tab-sep{width:6px;display:inline-block;border-bottom:2px solid transparent;margin-bottom:-1px;}
-.tab-add{font-size:18px;line-height:1;padding:6px 12px 10px;cursor:pointer;color:var(--text3);background:none;border:none;transition:all .2s;-webkit-tap-highlight-color:transparent;margin-bottom:-1px;touch-action:manipulation;}
+.acct-tab-sep{width:4px;display:inline-block;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.tab-add{font-size:18px;line-height:1;padding:6px 8px 10px;cursor:pointer;color:var(--text3);background:none;border:none;transition:all .2s;-webkit-tap-highlight-color:transparent;margin-bottom:-1px;touch-action:manipulation;width:auto;}
 .tab-add:hover{color:var(--accent);}
 
 /* TIME FILTER */
@@ -239,9 +239,9 @@ tr:hover td{background:rgba(0,212,255,0.02);}
 
   <!-- TABS -->
   <div class="tabs" id="main-tabs">
-    <div id="acct-tabs-container" style="display:contents"></div>
+    <div id="acct-tabs-container" style="display:flex;flex-wrap:wrap;align-items:flex-end;"></div>
     <button class="tab-add" onclick="addAccount()" title="Nueva cuenta">+</button>
-    <button class="tab" id="tab-btn-calc" onclick="showMainTab('calc',this)" style="margin-left:auto">CALCULADORA</button>
+    <button class="tab" id="tab-btn-calc" onclick="showMainTab('calc',this)" style="margin-left:auto">CALC</button>
   </div>
 
   <!-- ══ TAB: JOURNAL (shared content area) ══════════════════════════════════ -->

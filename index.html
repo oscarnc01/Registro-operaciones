@@ -1016,9 +1016,9 @@ function calcLots(){
   const riesgoUSD=capital*riesgo/100;
   const costPerLot=sl*pip;
   const lots=riesgoUSD/costPerLot;
-  const lotsRounded=Math.floor(lots*100)/100;
+  const lotsRounded=Math.ceil(lots*1000)/1000;
 
-  el.textContent=fmtN(lotsRounded,2);
+  el.textContent=fmtN(lotsRounded,3);
   bd.style.display='';
   document.getElementById('cb-riesgo-usd').textContent='$'+fmtN(riesgoUSD,2);
   document.getElementById('cb-sl').textContent=fmtN(sl,1)+' pips';

@@ -616,6 +616,7 @@ function load(){
 // ── INIT ──────────────────────────────────────────────
 document.getElementById('f-fecha').value=todayISO;
 fetchHistoricalRates(todayISO);
+fetchFxRates(); // carga tipos en vivo desde el arranque
 document.getElementById('range-from').value=todayISO;
 document.getElementById('range-to').value=todayISO;
 document.getElementById('today-label').textContent=new Date().toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'long',year:'numeric'});

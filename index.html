@@ -295,7 +295,10 @@ tr:hover td{background:rgba(0,212,255,0.02);}
                   <span>Beneficio</span>
                   <span id="f-ben-auto" style="font-size:8px;letter-spacing:.1em;color:var(--accent);display:none">AUTO</span>
                 </label>
-                <input type="text" inputmode="numeric" id="f-beneficio" placeholder="0.00" oninput="beneficioManualFlag=true">
+                <div style="display:flex;gap:6px">
+                  <input type="text" inputmode="decimal" id="f-beneficio" placeholder="0.00" oninput="beneficioManualFlag=true" style="flex:1;min-width:0">
+                  <button type="button" onclick="toggleBenSign()" style="padding:0 12px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:6px;color:var(--text);font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent" title="Cambiar signo">±</button>
+                </div>
               </div>
             </div>
             <div class="field">
@@ -361,6 +364,8 @@ tr:hover td{background:rgba(0,212,255,0.02);}
           <div class="panel-head-right">
             <span class="tag accent" id="badge-count">0 trades</span>
             <button class="filter-btn" style="font-size:9px;padding:3px 8px" onclick="exportCSV()">↓ CSV</button>
+            <button class="filter-btn" style="font-size:9px;padding:3px 8px" onclick="document.getElementById('import-file').click()">↑ Importar</button>
+            <input type="file" id="import-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="importFile(this)">
           </div>
         </div>
         <div class="filter-bar">
@@ -560,10 +565,23 @@ tr:hover td{background:rgba(0,212,255,0.02);}
 
   </div><!-- /tab-calc -->
 
-</div><!-- /wrapper -->
+<!-- IMPORT MODAL -->
+<div id="import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto">
+    <div style="font-family:var(--display);font-size:14px;letter-spacing:.1em;margin-bottom:16px;color:var(--text)">IMPORTAR TRADES</div>
+    <div id="import-preview" style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.8"></div>
+    <div id="import-errors" style="font-size:11px;color:var(--warn);margin-bottom:16px;display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="confirmImport()" style="flex:1;padding:10px;background:var(--accent);color:#000;border:none;border-radius:6px;font-family:var(--display);font-size:13px;letter-spacing:.08em;cursor:pointer" id="import-confirm-btn">IMPORTAR</button>
+      <button onclick="closeImportModal()" style="padding:10px 16px;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:12px;cursor:pointer">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── UTILS ─────────────────────────────────────────────
 const fmt=(n,d=2)=>isNaN(n)?'—':(n>=0?'+':'')+n.toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d,useGrouping:true});
@@ -641,6 +659,12 @@ function periodLabel(){
 }
 
 // ── TIPO ──────────────────────────────────────────────
+function toggleBenSign(){
+  const el=document.getElementById('f-beneficio');
+  const v=parseFloat(el.value.replace(',','.'));
+  if(!isNaN(v)&&v!==0){ el.value=parseFloat((-v).toFixed(2)); beneficioManualFlag=true; }
+}
+
 function setTicker(tk){
   document.getElementById('f-ticker').value=tk;
   document.querySelectorAll('.ticker-fav-presets .preset-btn').forEach(b=>b.classList.toggle('active', b.textContent===tk));
@@ -1199,6 +1223,186 @@ function fxCalcLots(pair){
 }
 
 // Auto-fetch FX when switching to calc tab
+// ── IMPORT ────────────────────────────────────────────
+let importPending = [];
+
+const FIELD_ALIASES = {
+  fecha:    ['fecha','date','día','dia','f','trade date','open date','close date'],
+  ticker:   ['ticker','symbol','instrumento','instrument','pair','activo','asset'],
+  tipo:     ['tipo','type','direction','side','buy/sell','long/short'],
+  lotes:    ['lotes','lots','size','volume','cantidad','qty','quantity'],
+  entrada:  ['entrada','entry','open','open price','precio entrada','price in','open_price'],
+  salida:   ['salida','exit','close','close price','precio salida','price out','close_price'],
+  beneficio:['beneficio','profit','p&l','pnl','resultado','gain','net profit','profit/loss'],
+  notas:    ['notas','notes','comment','comments','comentario','descripcion','description'],
+};
+
+function detectField(header){
+  const h=header.toLowerCase().trim();
+  for(const [field,aliases] of Object.entries(FIELD_ALIASES)){
+    if(aliases.some(a=>h.includes(a)||a.includes(h))) return field;
+  }
+  return null;
+}
+
+function parseDate(raw){
+  if(!raw) return null;
+  // Try ISO
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // DD/MM/YYYY or DD-MM-YYYY
+  const m1=raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
+  // MM/DD/YYYY
+  const m2=raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if(m2) return `20${m2[3]}-${m2[1].padStart(2,'0')}-${m2[2].padStart(2,'0')}`;
+  // Excel serial date
+  if(!isNaN(raw)){
+    const d=XLSX.SSF.parse_date_code(Number(raw));
+    if(d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+  }
+  // Try native Date
+  const nd=new Date(raw);
+  if(!isNaN(nd)) return nd.toISOString().split('T')[0];
+  return null;
+}
+
+function parseTipo(raw){
+  if(!raw) return 'long';
+  const v=String(raw).toLowerCase().trim();
+  if(['short','sell','s','venta','bajista'].some(x=>v.includes(x))) return 'short';
+  return 'long';
+}
+
+function parseNum(raw){
+  if(raw===null||raw===undefined||raw==='') return null;
+  const s=String(raw).replace(/[€$£\s]/g,'').replace(',','.');
+  const n=parseFloat(s);
+  return isNaN(n)?null:n;
+}
+
+function rowsToTrades(rows, colMap){
+  const result=[], errors=[];
+  rows.forEach((row,i)=>{
+    const get=f=>colMap[f]!==undefined?row[colMap[f]]:undefined;
+    const fecha=parseDate(String(get('fecha')??''));
+    const ticker=String(get('ticker')??'').trim().toUpperCase();
+    const beneficio=parseNum(get('beneficio'));
+    if(!fecha){ errors.push(`Fila ${i+2}: fecha inválida ("${get('fecha')}")`); return; }
+    if(!ticker){ errors.push(`Fila ${i+2}: ticker vacío`); return; }
+    if(beneficio===null){ errors.push(`Fila ${i+2}: beneficio inválido ("${get('beneficio')}")`); return; }
+    result.push({
+      id: nextId++,
+      fecha,
+      ticker,
+      tipo: parseTipo(get('tipo')),
+      lotes: parseNum(get('lotes')),
+      entrada: parseNum(get('entrada')),
+      salida: parseNum(get('salida')),
+      beneficio,
+      notas: String(get('notas')??'').trim(),
+    });
+  });
+  return {result, errors};
+}
+
+function parseCSVRows(text){
+  const sep=text.includes(';')?';':',';
+  const lines=text.trim().split(/\r?\n/);
+  const headers=lines[0].split(sep).map(h=>h.replace(/^"|"$/g,'').trim());
+  const colMap={};
+  headers.forEach((h,i)=>{ const f=detectField(h); if(f) colMap[f]=i; });
+  const rows=lines.slice(1).filter(l=>l.trim()).map(l=>
+    l.split(sep).map(c=>c.replace(/^"|"$/g,'').trim())
+  );
+  return {headers, colMap, rows};
+}
+
+function parseXLSXRows(ab){
+  const wb=XLSX.read(ab,{type:'array'});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  if(data.length<2) return {headers:[],colMap:{},rows:[]};
+  const headers=data[0].map(h=>String(h).trim());
+  const colMap={};
+  headers.forEach((h,i)=>{ const f=detectField(h); if(f) colMap[f]=i; });
+  const rows=data.slice(1).filter(r=>r.some(c=>c!==''));
+  return {headers, colMap, rows};
+}
+
+function showImportModal(trades, errors, mappedFields){
+  importPending=trades;
+  const modal=document.getElementById('import-modal');
+  const preview=document.getElementById('import-preview');
+  const errEl=document.getElementById('import-errors');
+  const confirmBtn=document.getElementById('import-confirm-btn');
+
+  const fieldNames={fecha:'Fecha',ticker:'Ticker',tipo:'Tipo',lotes:'Lotes',
+    entrada:'Entrada',salida:'Salida',beneficio:'Beneficio',notas:'Notas'};
+  const mapped=Object.keys(mappedFields).filter(f=>mappedFields[f]!==undefined);
+  const missing=Object.keys(fieldNames).filter(f=>!mapped.includes(f)&&f!=='notas');
+
+  let html=`<b>${trades.length}</b> operaciones detectadas.<br>`;
+  html+=`<span style="color:var(--green)">Campos mapeados: ${mapped.map(f=>fieldNames[f]).join(', ')}</span><br>`;
+  if(missing.length) html+=`<span style="color:var(--warn)">Sin mapear: ${missing.map(f=>fieldNames[f]).join(', ')}</span><br>`;
+  if(trades.length>0){
+    html+=`<br><b>Primeras ${Math.min(3,trades.length)} filas:</b><br>`;
+    trades.slice(0,3).forEach(t=>{
+      html+=`• ${t.fecha} · ${t.ticker} · ${t.tipo} · ${t.beneficio>0?'+':''}${t.beneficio}€<br>`;
+    });
+  }
+  preview.innerHTML=html;
+
+  if(errors.length){
+    errEl.style.display='';
+    errEl.innerHTML='<b>Advertencias:</b><br>'+errors.slice(0,5).join('<br>')+(errors.length>5?`<br>...y ${errors.length-5} más`:'');
+  } else errEl.style.display='none';
+
+  confirmBtn.textContent=`IMPORTAR ${trades.length} TRADES`;
+  confirmBtn.disabled=trades.length===0;
+  modal.style.display='flex';
+}
+
+function closeImportModal(){
+  document.getElementById('import-modal').style.display='none';
+  document.getElementById('import-file').value='';
+  importPending=[];
+}
+
+function confirmImport(){
+  if(!importPending.length) return;
+  trades.push(...importPending);
+  trades.sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  save(); render();
+  closeImportModal();
+  toast(`${importPending.length} trades importados ✓`);
+  importPending=[];
+}
+
+function importFile(input){
+  const file=input.files[0]; if(!file) return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  const reader=new FileReader();
+
+  reader.onload=function(e){
+    let parsed;
+    if(ext==='csv'){
+      parsed=parseCSVRows(e.target.result);
+    } else {
+      const ab=new Uint8Array(e.target.result);
+      parsed=parseXLSXRows(ab);
+    }
+    const {colMap, rows}=parsed;
+    if(!Object.keys(colMap).length){
+      toast('No se reconoció ninguna columna',true); return;
+    }
+    const {result,errors}=rowsToTrades(rows,colMap);
+    showImportModal(result, errors, colMap);
+  };
+
+  if(ext==='csv') reader.readAsText(file,'UTF-8');
+  else reader.readAsArrayBuffer(file);
+}
+
 function showTab(id,btn){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));

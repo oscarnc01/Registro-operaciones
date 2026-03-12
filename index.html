@@ -659,36 +659,30 @@ function renderAcctTabs(){
   accounts.forEach(acct=>{
     const wrap=document.createElement('div');
     wrap.className='acct-tab'+(acct.id===currentAcctId?' active':'');
-    wrap.dataset.acctId=acct.id;
 
     const btn=document.createElement('button');
     btn.className='acct-tab-btn';
     btn.textContent=acct.name;
     btn.type='button';
 
-    let tapTimer=null;
-    function handleTap(e){
-      e.preventDefault();
-      if(tapTimer){
-        clearTimeout(tapTimer);
-        tapTimer=null;
-        startRename(acct.id, wrap);
-      } else {
-        tapTimer=setTimeout(()=>{ tapTimer=null; switchAccount(acct.id); },220);
-      }
-    }
-    btn.addEventListener('touchend', handleTap, {passive:false});
-    btn.addEventListener('click', function(e){
-      // On desktop (no touch) use click normally
-      if(!('ontouchstart' in window)) switchAccount(acct.id);
-    });
+    // Long press to rename (600ms), single tap to switch
+    let pressTimer=null;
+    btn.addEventListener('touchstart', function(e){
+      pressTimer=setTimeout(()=>{ pressTimer=null; startRename(acct.id, wrap); }, 600);
+    }, {passive:true});
+    btn.addEventListener('touchend', function(e){
+      if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; switchAccount(acct.id); }
+    }, {passive:true});
+    btn.addEventListener('touchmove', function(){ clearTimeout(pressTimer); pressTimer=null; }, {passive:true});
+    // Desktop: click to switch, dblclick to rename
+    btn.addEventListener('click', function(){ switchAccount(acct.id); });
+    btn.addEventListener('dblclick', function(e){ e.preventDefault(); startRename(acct.id, wrap); });
 
     const del=document.createElement('button');
     del.className='acct-tab-del';
     del.textContent='×';
-    del.title='Eliminar cuenta';
     del.type='button';
-    del.addEventListener('touchend', function(e){ e.preventDefault(); e.stopPropagation(); deleteAccount(acct.id); }, {passive:false});
+    del.addEventListener('touchend', function(e){ e.stopPropagation(); deleteAccount(acct.id); }, {passive:true});
     del.addEventListener('click', function(e){ e.stopPropagation(); deleteAccount(acct.id); });
 
     wrap.appendChild(btn);

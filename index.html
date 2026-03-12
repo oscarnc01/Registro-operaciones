@@ -41,20 +41,16 @@ header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap
 .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
 .tab-content{display:none;}
 .tab-content.active{display:block;}
-/* Account tabs */
-.acct-tab{display:flex;align-items:center;gap:0;border-bottom:2px solid transparent;margin-bottom:-1px;position:relative;}
-.acct-tab.active{border-bottom-color:var(--accent);}
-.acct-tab-btn{font-family:var(--display);font-size:13px;letter-spacing:.08em;padding:10px 6px 10px 14px;cursor:pointer;color:var(--text3);background:none;border:none;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;touch-action:manipulation;}
-.acct-tab.active .acct-tab-btn{color:var(--accent);}
-.acct-tab-del{font-size:11px;padding:4px 8px 4px 2px;cursor:pointer;color:var(--text3);background:none;border:none;opacity:0;transition:opacity .2s;-webkit-tap-highlight-color:transparent;line-height:1;touch-action:manipulation;}
-.acct-tab:hover .acct-tab-del{opacity:1;}
-.acct-tab-del:hover{color:var(--red);}
-.acct-tab-edit{font-size:11px;padding:4px 4px 4px 0;cursor:pointer;color:var(--accent);background:none;border:none;-webkit-tap-highlight-color:transparent;line-height:1;touch-action:manipulation;opacity:0.6;}
-.acct-tab-edit:hover{opacity:1;}
+/* Account tabs - flat buttons */
+.acct-tab-btn{font-family:var(--display);font-size:13px;letter-spacing:.08em;padding:10px 4px 10px 14px;cursor:pointer;color:var(--text3);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;touch-action:manipulation;}
+.acct-tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.acct-tab-icon{font-size:11px;padding:4px 5px;cursor:pointer;color:var(--text3);background:none;border:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;opacity:0.5;margin-bottom:2px;}
+.acct-tab-icon:hover,.acct-tab-icon:active{opacity:1;}
+.acct-tab-del{color:var(--text3);}
+.acct-tab-del:hover,.acct-tab-del:active{color:var(--red);}
+.acct-tab-sep{width:6px;display:inline-block;border-bottom:2px solid transparent;margin-bottom:-1px;}
 .tab-add{font-size:18px;line-height:1;padding:6px 12px 10px;cursor:pointer;color:var(--text3);background:none;border:none;transition:all .2s;-webkit-tap-highlight-color:transparent;margin-bottom:-1px;touch-action:manipulation;}
 .tab-add:hover{color:var(--accent);}
-/* Rename input overlay */
-.acct-tab-input{font-family:var(--display);font-size:16px;letter-spacing:.08em;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--accent);outline:none;width:110px;padding:0 2px;}
 
 /* TIME FILTER */
 .time-filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
@@ -660,61 +656,55 @@ function renderAcctTabs(){
   container.innerHTML='';
   accounts.forEach(acct=>{
     const isActive=acct.id===currentAcctId;
-    const wrap=document.createElement('div');
-    wrap.className='acct-tab'+(isActive?' active':'');
 
     const btn=document.createElement('button');
-    btn.className='acct-tab-btn';
+    btn.className='acct-tab-btn'+(isActive?' active':'');
     btn.textContent=acct.name;
     btn.type='button';
+    btn.dataset.id=acct.id;
     btn.onclick=()=>switchAccount(acct.id);
+    container.appendChild(btn);
 
-    wrap.appendChild(btn);
+    const edit=document.createElement('button');
+    edit.className='acct-tab-icon';
+    edit.textContent='✎';
+    edit.type='button';
+    edit.dataset.id=acct.id;
+    edit.onclick=(e)=>{ e.stopPropagation(); startRenameFlat(acct.id, btn, edit); };
+    container.appendChild(edit);
 
-    // Edit button — only on active tab, always visible
-    if(isActive){
-      const edit=document.createElement('button');
-      edit.className='acct-tab-edit';
-      edit.textContent='✎';
-      edit.type='button';
-      edit.title='Renombrar';
-      edit.onclick=(e)=>{ e.stopPropagation(); startRename(acct.id, wrap); };
-      wrap.appendChild(edit);
-    }
-
-    // Delete button — only when more than one account
     if(accounts.length>1){
       const del=document.createElement('button');
-      del.className='acct-tab-del';
+      del.className='acct-tab-icon acct-tab-del';
       del.textContent='×';
       del.type='button';
       del.onclick=(e)=>{ e.stopPropagation(); deleteAccount(acct.id); };
-      wrap.appendChild(del);
+      container.appendChild(del);
     }
 
-    container.appendChild(wrap);
+    // Separator
+    const sep=document.createElement('div');
+    sep.className='acct-tab-sep';
+    container.appendChild(sep);
   });
 }
 
-
-function startRename(id, wrapEl){
+function startRenameFlat(id, btn, editBtn){
   const acct=accounts.find(a=>a.id===id);
   if(!acct) return;
-  const btn=wrapEl.querySelector('.acct-tab-btn');
   const input=document.createElement('input');
-  input.className='acct-tab-input';
   input.value=acct.name;
-  input.style.cssText='font-family:var(--display);font-size:16px;letter-spacing:.08em;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--accent);outline:none;width:110px;padding:6px 2px 8px;';
+  input.style.cssText='font-size:16px;font-family:var(--display);letter-spacing:.08em;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--accent);outline:none;width:100px;padding:8px 2px;touch-action:manipulation;';
   btn.replaceWith(input);
+  editBtn.style.display='none';
   input.focus(); input.select();
   const finish=()=>{
-    const v=input.value.trim();
-    acct.name=v||acct.name;
+    acct.name=input.value.trim()||acct.name;
     saveAccounts();
     renderAcctTabs();
   };
   input.onblur=finish;
-  input.onkeydown=e=>{ if(e.key==='Enter') input.blur(); if(e.key==='Escape'){ input.value=acct.name; input.blur(); } };
+  input.onkeydown=e=>{ if(e.key==='Enter') input.blur(); if(e.key==='Escape'){ acct.name=acct.name; input.blur(); } };
 }
 
 function switchAccount(id){

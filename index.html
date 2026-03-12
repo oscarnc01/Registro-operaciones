@@ -290,7 +290,7 @@ tr:hover td{background:rgba(0,212,255,0.02);}
                 <button class="preset-btn" onclick="setTicker('US100')">US100</button>
                 <button class="preset-btn" onclick="setTicker('JP225')">JP225</button>
               </div>
-              <input type="text" id="f-ticker" placeholder="EURUSD, AAPL, BTC..." style="text-transform:uppercase">
+              <input type="text" id="f-ticker" placeholder="EURUSD, AAPL, BTC..." style="text-transform:uppercase" oninput="clearTickerPresets()">
             </div>
             <div class="field"><label>Tipo</label></div>
             <div class="type-toggle">
@@ -836,6 +836,14 @@ function toggleBenSign(){
 }
 
 const TICKER_CCY={'GER40':'EUR','FTSE100':'GBP','JP225':'JPY','US500':'USD','US100':'USD'};
+
+function clearTickerPresets(){
+  document.querySelectorAll('.ticker-fav-presets .preset-btn').forEach(b=>b.classList.remove('active'));
+  setFormCcy('USD'); // reset divisa a USD
+  clearFormPipPreset(); // reset pip preset
+  formPipBase=null;
+  recalcFormPip();
+}
 
 function setTicker(tk){
   document.getElementById('f-ticker').value=tk;

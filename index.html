@@ -702,7 +702,12 @@ function startRename(id, wrapEl){
 }
 
 function switchAccount(id){
-  if(id===currentAcctId) return;
+  const alreadyActive=(id===currentAcctId);
+  // Always show the journal tab (in case we're coming from calc tab)
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-journal').classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(alreadyActive){ renderAcctTabs(); render(); return; }
   // Reset filters
   activeFilter='all'; timePeriod='all';
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active', b.dataset.filter==='all'));
@@ -711,11 +716,6 @@ function switchAccount(id){
   currentAcctId=id;
   loadTrades(id);
   renderAcctTabs();
-  // Show journal tab
-  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.getElementById('tab-journal').classList.add('active');
-  document.querySelectorAll('.tab,.acct-tab-btn').forEach(t=>t.classList.remove('active'));
-  document.getElementById('tab-btn-calc').classList.remove('active');
   render();
 }
 

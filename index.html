@@ -277,12 +277,39 @@ tr:hover td{background:rgba(0,212,255,0.02);}
               <button class="type-btn short" id="btn-short" onclick="setType('short')">▼ SHORT</button>
             </div>
             <div class="field-row">
-              <div class="field"><label>Lotes</label><input type="number" id="f-lotes" placeholder="1.00" min="0" step="any" inputmode="decimal"></div>
-              <div class="field"><label>Precio entrada</label><input type="number" id="f-entrada" placeholder="0.00" min="0" step="any" inputmode="decimal"></div>
+              <div class="field"><label>Lotes</label><input type="number" id="f-lotes" placeholder="1.00" min="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
+              <div class="field"><label>Precio entrada</label><input type="number" id="f-entrada" placeholder="0.00" min="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
             </div>
             <div class="field-row">
-              <div class="field"><label>Precio salida</label><input type="number" id="f-salida" placeholder="0.00" min="0" step="any" inputmode="decimal"></div>
-              <div class="field"><label>Beneficio</label><input type="number" id="f-beneficio" placeholder="0.00" step="any" inputmode="decimal"></div>
+              <div class="field"><label>Precio salida</label><input type="number" id="f-salida" placeholder="0.00" min="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
+              <div class="field">
+                <label style="display:flex;align-items:center;justify-content:space-between">
+                  <span>Beneficio</span>
+                  <span id="f-ben-auto" style="font-size:8px;letter-spacing:.1em;color:var(--accent);display:none">AUTO</span>
+                </label>
+                <input type="number" id="f-beneficio" placeholder="0.00" step="any" inputmode="decimal" oninput="beneficioManualFlag=true">
+              </div>
+            </div>
+            <div class="field">
+              <label style="display:flex;align-items:center;justify-content:space-between">
+                <span>Divisa del instrumento</span>
+                <span id="f-pip-live" style="font-size:10px;color:var(--accent);font-family:var(--mono)"></span>
+              </label>
+              <div class="preset-grid" id="form-ccy-presets" style="grid-template-columns:repeat(5,1fr);margin-bottom:6px">
+                <button class="preset-btn" onclick="setFormCcy('USD')">USD</button>
+                <button class="preset-btn" onclick="setFormCcy('EUR')">EUR</button>
+                <button class="preset-btn" onclick="setFormCcy('GBP')">GBP</button>
+                <button class="preset-btn" onclick="setFormCcy('JPY')">JPY</button>
+                <button class="preset-btn" onclick="setFormCcy('CAD')">CAD</button>
+              </div>
+              <label style="margin-top:2px">Pip value base ($) · preset o manual</label>
+              <div class="preset-grid" id="form-pip-presets" style="margin-bottom:6px">
+                <button class="preset-btn" onclick="setFormPip(10)">$10 Forex</button>
+                <button class="preset-btn" onclick="setFormPip(1)">$1 Índice</button>
+                <button class="preset-btn" onclick="setFormPip(100)">$100 Oro</button>
+                <button class="preset-btn" onclick="setFormPip(0.1)">$0.1</button>
+              </div>
+              <input type="number" id="f-pip" placeholder="Valor pip en $" min="0" step="any" inputmode="decimal" oninput="clearFormPipPreset();recalcFormPip()">
             </div>
             <div class="field"><label>Notas (opcional)</label><input type="text" id="f-notas" placeholder="Estrategia, razón..."></div>
             <button class="btn-add" onclick="addTrade()">+ REGISTRAR</button>
@@ -618,6 +645,69 @@ function getFiltered(){
 }
 
 // ── ADD ───────────────────────────────────────────────
+// ── AUTO BENEFICIO ────────────────────────────────────
+let beneficioManualFlag = false;
+let formPipBase = null;   // preset base pip value in USD
+let formCcy = 'USD';      // selected instrument currency
+
+function setFormCcy(ccy){
+  formCcy=ccy;
+  document.querySelectorAll('#form-ccy-presets .preset-btn').forEach(b=>b.classList.toggle('active', b.textContent===ccy));
+  recalcFormPip();
+}
+function setFormPip(v){
+  formPipBase=v;
+  document.querySelectorAll('#form-pip-presets .preset-btn').forEach(b=>b.classList.toggle('active', parseFloat(b.textContent)===v));
+  document.getElementById('f-pip').value='';
+  recalcFormPip();
+}
+function clearFormPipPreset(){
+  formPipBase=null;
+  document.querySelectorAll('#form-pip-presets .preset-btn').forEach(b=>b.classList.remove('active'));
+}
+function recalcFormPip(){
+  const liveEl=document.getElementById('f-pip-live');
+  const manualVal=parseFloat(document.getElementById('f-pip').value);
+  const base=formPipBase!==null ? formPipBase : (!isNaN(manualVal)&&manualVal>0 ? manualVal : null);
+  if(base===null){ liveEl.textContent=''; autoCalcBeneficio(); return; }
+  let multiplier=1;
+  if(formCcy!=='USD'){
+    const rate=fxRaw[formCcy];
+    if(!rate){ liveEl.textContent='Sin tipo de cambio'; autoCalcBeneficio(); return; }
+    multiplier=1/rate;
+  }
+  const effectivePip=base*multiplier;
+  liveEl.textContent='pip = $'+effectivePip.toFixed(4)+(formCcy!=='USD'?' (1/'+fxRaw[formCcy].toFixed(4)+')':'');
+  document.getElementById('f-pip').value=parseFloat(effectivePip.toFixed(6));
+  autoCalcBeneficio();
+}
+function autoCalcBeneficio(){
+  if(beneficioManualFlag) return;
+  const lotes=parseFloat(document.getElementById('f-lotes').value);
+  const entrada=parseFloat(document.getElementById('f-entrada').value);
+  const salida=parseFloat(document.getElementById('f-salida').value);
+  const pip=parseFloat(document.getElementById('f-pip').value);
+  const autoTag=document.getElementById('f-ben-auto');
+  if(!isNaN(lotes)&&!isNaN(entrada)&&!isNaN(salida)&&!isNaN(pip)&&pip>0){
+    const ben=(salida-entrada)*lotes*pip;
+    document.getElementById('f-beneficio').value=parseFloat(ben.toFixed(2));
+    autoTag.style.display='';
+  } else {
+    autoTag.style.display='none';
+  }
+}
+
+function autoCalcEditBeneficio(){
+  const lotes=parseFloat(document.getElementById('ei-lotes')?.value);
+  const entrada=parseFloat(document.getElementById('ei-entrada')?.value);
+  const salida=parseFloat(document.getElementById('ei-salida')?.value);
+  const pip=parseFloat(document.getElementById('ei-pip')?.value);
+  if(!isNaN(lotes)&&!isNaN(entrada)&&!isNaN(salida)&&!isNaN(pip)&&pip>0){
+    const ben=(salida-entrada)*lotes*pip;
+    document.getElementById('ei-beneficio').value=parseFloat(ben.toFixed(2));
+  }
+}
+
 function addTrade(){
   const fecha=document.getElementById('f-fecha').value;
   const ticker=document.getElementById('f-ticker').value.trim().toUpperCase();
@@ -626,14 +716,20 @@ function addTrade(){
   const salida=parseFloat(document.getElementById('f-salida').value);
   const beneficio=parseFloat(document.getElementById('f-beneficio').value);
   const notas=document.getElementById('f-notas').value.trim();
+  const pip=parseFloat(document.getElementById('f-pip').value);
   if(!fecha||!ticker){toast('Fecha y ticker son obligatorios',true);return;}
   if(isNaN(beneficio)){toast('Introduce el beneficio',true);return;}
   trades.push({id:nextId++,fecha,ticker,tipo:tradeType,
     lotes:isNaN(lotes)?null:lotes,entrada:isNaN(entrada)?null:entrada,
-    salida:isNaN(salida)?null:salida,beneficio,notas});
+    salida:isNaN(salida)?null:salida,pip:isNaN(pip)?null:pip,beneficio,notas});
   trades.sort((a,b)=>b.fecha.localeCompare(a.fecha));
-  ['f-ticker','f-lotes','f-entrada','f-salida','f-beneficio','f-notas'].forEach(id=>document.getElementById(id).value='');
+  ['f-ticker','f-lotes','f-entrada','f-salida','f-beneficio','f-pip','f-notas'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-fecha').value=todayISO;
+  document.getElementById('f-ben-auto').style.display='none';
+  document.getElementById('f-pip-live').textContent='';
+  document.querySelectorAll('#form-pip-presets .preset-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#form-ccy-presets .preset-btn').forEach(b=>b.classList.remove('active'));
+  beneficioManualFlag=false; formPipBase=null; formCcy='USD';
   save(); render(); toast('Operación registrada ✓');
 }
 
@@ -657,11 +753,12 @@ function editTrade(id,btn){
       <div class="edit-field"><label>Fecha</label><input class="edit-input" id="ei-fecha" type="date" value="${trade.fecha}"></div>
       <div class="edit-field"><label>Ticker</label><input class="edit-input" id="ei-ticker" type="text" value="${trade.ticker}" style="text-transform:uppercase"></div>
       <div class="edit-field"><label>Tipo</label><select class="edit-select" id="ei-tipo"><option value="long" ${trade.tipo==='long'?'selected':''}>▲ Long</option><option value="short" ${trade.tipo==='short'?'selected':''}>▼ Short</option></select></div>
-      <div class="edit-field"><label>Lotes</label><input class="edit-input" id="ei-lotes" type="number" value="${trade.lotes??''}" min="0" step="any" inputmode="decimal"></div>
-      <div class="edit-field"><label>Entrada</label><input class="edit-input" id="ei-entrada" type="number" value="${trade.entrada??''}" min="0" step="any" inputmode="decimal"></div>
-      <div class="edit-field"><label>Salida</label><input class="edit-input" id="ei-salida" type="number" value="${trade.salida??''}" min="0" step="any" inputmode="decimal"></div>
+      <div class="edit-field"><label>Lotes</label><input class="edit-input" id="ei-lotes" type="number" value="${trade.lotes??''}" min="0" step="any" inputmode="decimal" oninput="autoCalcEditBeneficio()"></div>
+      <div class="edit-field"><label>Entrada</label><input class="edit-input" id="ei-entrada" type="number" value="${trade.entrada??''}" min="0" step="any" inputmode="decimal" oninput="autoCalcEditBeneficio()"></div>
+      <div class="edit-field"><label>Salida</label><input class="edit-input" id="ei-salida" type="number" value="${trade.salida??''}" min="0" step="any" inputmode="decimal" oninput="autoCalcEditBeneficio()"></div>
+      <div class="edit-field"><label>Pip value ($)</label><input class="edit-input" id="ei-pip" type="number" value="${trade.pip??''}" placeholder="10" min="0" step="any" inputmode="decimal" oninput="autoCalcEditBeneficio()"></div>
       <div class="edit-field"><label>Beneficio</label><input class="edit-input" id="ei-beneficio" type="number" value="${trade.beneficio}" step="any" inputmode="decimal"></div>
-      <div class="edit-field"><label>Notas</label><input class="edit-input" id="ei-notas" type="text" value="${trade.notas||''}"></div>
+      <div class="edit-field" style="grid-column:1/-1"><label>Notas</label><input class="edit-input" id="ei-notas" type="text" value="${trade.notas||''}"></div>
     </div>
     <div class="edit-actions">
       <button class="btn-save" onclick="saveTrade(${id})">✓ GUARDAR</button>
@@ -681,9 +778,10 @@ function saveTrade(id){
   const salida=parseFloat(document.getElementById('ei-salida').value);
   const beneficio=parseFloat(document.getElementById('ei-beneficio').value);
   const notas=document.getElementById('ei-notas').value.trim();
+  const pip=parseFloat(document.getElementById('ei-pip').value);
   if(!fecha||!ticker||isNaN(beneficio)){toast('Campos obligatorios vacíos',true);return;}
   const idx=trades.findIndex(t=>t.id===id); if(idx===-1)return;
-  trades[idx]={id,fecha,ticker,tipo,lotes:isNaN(lotes)?null:lotes,entrada:isNaN(entrada)?null:entrada,salida:isNaN(salida)?null:salida,beneficio,notas};
+  trades[idx]={id,fecha,ticker,tipo,lotes:isNaN(lotes)?null:lotes,entrada:isNaN(entrada)?null:entrada,salida:isNaN(salida)?null:salida,pip:isNaN(pip)?null:pip,beneficio,notas};
   trades.sort((a,b)=>b.fecha.localeCompare(a.fecha));
   save(); render(); toast('Operación actualizada ✓');
 }
@@ -895,6 +993,8 @@ function calcRR(){
 const fxRates     = {EURUSD:null, GBPUSD:null, JPYUSD:null};
 const fxPrevRates = {EURUSD:null, GBPUSD:null, JPYUSD:null};
 const FX_DECIMALS = {EURUSD:4, GBPUSD:4, JPYUSD:2};
+// Raw rates: units of currency per 1 USD (from Frankfurter from=USD)
+const fxRaw = {EUR:null, GBP:null, JPY:null, CAD:null, USD:1};
 
 function getFxCapital(){
   const v=parseFloat(document.getElementById('fx-capital').value);
@@ -911,11 +1011,14 @@ function fxSetStatus(state){
 async function fetchFxRates(){
   fxSetStatus('loading');
   try{
-    const res=await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY');
+    const res=await fetch('https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY,CAD');
     if(!res.ok) throw new Error();
     const data=await res.json();
+    const {EUR:e,GBP:g,JPY:j,CAD:c}=data.rates;
+    // Store raw rates (units per 1 USD)
+    fxRaw.EUR=e; fxRaw.GBP=g; fxRaw.JPY=j; fxRaw.CAD=c; fxRaw.USD=1;
+    // Lot calculator rates (capital × rate)
     const capital=getFxCapital();
-    const {EUR:e,GBP:g,JPY:j}=data.rates;
     ['EURUSD','GBPUSD','JPYUSD'].forEach(p=>fxPrevRates[p]=fxRates[p]);
     fxRates.EURUSD=capital*e;
     fxRates.GBPUSD=capital*g;
@@ -924,6 +1027,8 @@ async function fetchFxRates(){
     const t=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
     document.getElementById('fx-last-update').textContent='Última actualización: '+t;
     fxSetStatus('ok');
+    // Recalc pip if currency selected
+    recalcFormPip();
   } catch(e){
     fxSetStatus('error');
     document.getElementById('fx-last-update').textContent='Error al obtener datos';

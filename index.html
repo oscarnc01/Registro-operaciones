@@ -316,6 +316,8 @@ tr:hover td{background:rgba(0,212,255,0.02);}
                   <button type="button" onclick="toggleBenSign()" style="padding:0 12px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:6px;color:var(--text);font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent" title="Cambiar signo">±</button>
                 </div>
               </div>
+              <div class="field"><label>Swap</label><input type="number" id="f-swap" value="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
+              <div class="field"><label>Comisión</label><input type="number" id="f-comision" value="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
             </div>
             <div class="field">
               <label style="display:flex;align-items:center;justify-content:space-between">
@@ -866,6 +868,7 @@ function setType(t){
   tradeType=t;
   document.getElementById('btn-long').classList.toggle('active',t==='long');
   document.getElementById('btn-short').classList.toggle('active',t==='short');
+  autoCalcBeneficio();
 }
 
 // ── FILTER ────────────────────────────────────────────
@@ -973,9 +976,12 @@ function autoCalcBeneficio(){
   const entrada=parseFloat(document.getElementById('f-entrada').value);
   const salida=parseFloat(document.getElementById('f-salida').value);
   const pip=parseFloat(document.getElementById('f-pip').value);
+  const swap=parseFloat(document.getElementById('f-swap').value)||0;
+  const comision=parseFloat(document.getElementById('f-comision').value)||0;
   const autoTag=document.getElementById('f-ben-auto');
   if(!isNaN(lotes)&&!isNaN(entrada)&&!isNaN(salida)&&!isNaN(pip)&&pip>0){
-    const ben=(salida-entrada)*lotes*pip;
+    const dir=tradeType==='short'?-1:1;
+    const ben=(salida-entrada)*dir*lotes*pip+swap+comision;
     document.getElementById('f-beneficio').value=parseFloat(ben.toFixed(2));
     autoTag.style.display='';
   } else {
@@ -1003,13 +1009,17 @@ function addTrade(){
   const beneficio=parseFloat(document.getElementById('f-beneficio').value.replace(',','.'));
   const notas=document.getElementById('f-notas').value.trim();
   const pip=parseFloat(document.getElementById('f-pip').value);
+  const swap=parseFloat(document.getElementById('f-swap').value)||0;
+  const comision=parseFloat(document.getElementById('f-comision').value)||0;
   if(!fecha||!ticker){toast('Fecha y ticker son obligatorios',true);return;}
   if(isNaN(beneficio)){toast('Introduce el beneficio',true);return;}
   trades.push({id:nextId++,fecha,ticker,tipo:tradeType,
     lotes:isNaN(lotes)?null:lotes,entrada:isNaN(entrada)?null:entrada,
-    salida:isNaN(salida)?null:salida,pip:isNaN(pip)?null:pip,beneficio,notas});
+    salida:isNaN(salida)?null:salida,pip:isNaN(pip)?null:pip,swap,comision,beneficio,notas});
   trades.sort((a,b)=>b.fecha.localeCompare(a.fecha));
   ['f-ticker','f-lotes','f-entrada','f-salida','f-beneficio','f-notas'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-swap').value='0';
+  document.getElementById('f-comision').value='0';
   document.getElementById('f-fecha').value=todayISO;
   fxRawFormDate=null; fetchHistoricalRates(todayISO);
   document.getElementById('f-ben-auto').style.display='none';

@@ -316,8 +316,14 @@ tr:hover td{background:rgba(0,212,255,0.02);}
                   <button type="button" onclick="toggleBenSign()" style="padding:0 12px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:6px;color:var(--text);font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent" title="Cambiar signo">±</button>
                 </div>
               </div>
-              <div class="field"><label>Swap</label><input type="number" id="f-swap" value="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
-              <div class="field"><label>Comisión</label><input type="number" id="f-comision" value="0" step="any" inputmode="decimal" oninput="autoCalcBeneficio()"></div>
+              <div class="field">
+                <label>Swap</label>
+                <div style="display:flex;gap:6px">
+                  <input type="text" inputmode="decimal" id="f-swap" value="0" style="flex:1;min-width:0" oninput="autoCalcBeneficio()">
+                  <button type="button" onclick="toggleSwapSign()" style="padding:0 10px;background:var(--surface2);border:1.5px solid var(--border2);border-radius:6px;color:var(--text);font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent">±</button>
+                </div>
+              </div>
+              <div class="field"><label>Comisión</label><input type="text" inputmode="decimal" id="f-comision" value="0" oninput="autoCalcBeneficio()"></div>
             </div>
             <div class="field">
               <label style="display:flex;align-items:center;justify-content:space-between">
@@ -791,12 +797,17 @@ function showMainTab(id, btn){
 }
 
 // ── INIT ──────────────────────────────────────────────
+let beneficioManualFlag = false;
+let formPipBase = null;
+let formCcy = 'USD';
 document.getElementById('f-fecha').value=todayISO;
 fetchHistoricalRates(todayISO);
 fetchFxRates();
 document.getElementById('range-from').value=todayISO;
 document.getElementById('range-to').value=todayISO;
 document.getElementById('today-label').textContent=new Date().toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'long',year:'numeric'});
+beneficioManualFlag=false;
+setFormPip(1,'$1 Índice');
 initAccounts(); render();
 
 // ── TIME PERIOD ───────────────────────────────────────
@@ -895,9 +906,6 @@ function getFiltered(){
 
 // ── ADD ───────────────────────────────────────────────
 // ── AUTO BENEFICIO ────────────────────────────────────
-let beneficioManualFlag = false;
-let formPipBase = null;
-let formCcy = 'USD';
 // Per-form historical rates (fetched by trade date), separate from live fxRaw
 const fxRawForm = {EUR:null, GBP:null, JPY:null, CAD:null, USD:1};
 let fxRawFormDate = null; // ISO date these rates correspond to
@@ -940,7 +948,6 @@ function setFormPip(v, label){
     if(label) b.classList.toggle('active', valMatch&&b.textContent.trim()===label);
     else b.classList.toggle('active', valMatch);
   });
-  document.getElementById('f-pip').value='';
   recalcFormPip();
 }
 function clearFormPipPreset(){
@@ -970,16 +977,21 @@ function recalcFormPip(){
   document.getElementById('f-pip').value=parseFloat(effectivePip.toFixed(6));
   autoCalcBeneficio();
 }
+function toggleSwapSign(){
+  const el=document.getElementById('f-swap');
+  const v=parseFloat(el.value.replace(',','.'));
+  if(!isNaN(v)&&v!==0){ el.value=parseFloat((-v).toFixed(2)); autoCalcBeneficio(); }
+}
 function autoCalcBeneficio(){
   if(beneficioManualFlag) return;
   const lotes=parseFloat(document.getElementById('f-lotes').value);
   const entrada=parseFloat(document.getElementById('f-entrada').value);
   const salida=parseFloat(document.getElementById('f-salida').value);
   const pip=parseFloat(document.getElementById('f-pip').value);
-  const swap=parseFloat(document.getElementById('f-swap').value)||0;
-  const comision=parseFloat(document.getElementById('f-comision').value)||0;
+  const swap=parseFloat(String(document.getElementById('f-swap').value).replace(',','.'))||0;
+  const comision=parseFloat(String(document.getElementById('f-comision').value).replace(',','.'))||0;
   const autoTag=document.getElementById('f-ben-auto');
-  if(!isNaN(lotes)&&!isNaN(entrada)&&!isNaN(salida)&&!isNaN(pip)&&pip>0){
+  if(!isNaN(lotes)&&!isNaN(entrada)&&!isNaN(salida)&&!isNaN(pip)&&pip>0&&lotes>0){
     const dir=tradeType==='short'?-1:1;
     const ben=(salida-entrada)*dir*lotes*pip+swap+comision;
     document.getElementById('f-beneficio').value=parseFloat(ben.toFixed(2));
